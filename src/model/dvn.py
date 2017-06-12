@@ -1,6 +1,4 @@
-#! /usr/bin/env python
-
-
+# -*- coding: utf-8 -*-
 # Compatibility to python 2
 from __future__ import (absolute_import, division,
                         print_function, unicode_literals)
@@ -15,104 +13,135 @@ import numpy as np
 
 
 class DvnNet(object):
-    def __init__(self, batch_size=1, classes=None):
+    def __init__(self, classes=None, batch_size=1, img_width=24, img_height=24):
         self._batch_size = batch_size
+        self._img_width = img_width
+        self._img_height = img_height
         self._classes = classes
         self._num_classes = len(classes)
+        self._graph = {}
+        self._learning_rate = 0.0001
+        self._keep_prob = 0.75
+
+    def conv_acti_layer(self, bottom, filter_shape, filter_depth, name, stride, padding='SAME'):
+        strides = [1, stride, stride, 1]
+        with tf.variable_scope(name):
+            pre_depth = bottom.get_shape()[3].value
+            weights_shape = filter_shape + [pre_depth, filter_depth]
+
+            weight = tf.get_variable(name + "_weight", weights_shape,
+                                     initializer=tf.orthogonal_initializer(gain=1.0, seed=None),
+                                     collections=['variables'])
+            bias = tf.get_variable(name + "_bias", filter_depth, initializer=tf.constant_initializer(0.001),
+                                   collections=['variables'])
+
+            conv = tf.nn.conv2d(bottom, weight, strides=strides, padding=padding)
+            return tf.nn.relu(conv + bias)
 
     def _weight_variable(self, shape):
       initial = tf.truncated_normal(shape, stddev=0.1)
       return tf.Variable(initial)
 
     def _bias_variable(self, shape):
-      initial = tf.constant(0.1, shape=shape)
+      initial = tf.constant(0.001, shape=shape)
       return tf.Variable(initial)
 
-    def _conv2d(self, x, W):
-      return tf.nn.conv2d(x, W, strides=[1, 1, 1, 1], padding='SAME')
+    def _conv2d(self, x, W, stride=1):
+      return tf.nn.conv2d(x, W, strides=[1, stride, stride, 1], padding='SAME')
 
-    def _max_pool_2x2(self, x):
-      return tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
-                            strides=[1, 2, 2, 1], padding='SAME')
+    def _relu(self, conv, b):
+        return tf.nn.relu(conv+b)
+
+    def _max_pool(self, x, size=2, stride=2):
+      return tf.nn.max_pool(x, ksize=[1, size, size, 1],
+                            strides=[1, stride, stride, 1], padding='SAME')
+
+    def _oracle_score(self, y, y_gt):
+        """
+        also referred to as v*
+        :param y: segmantation masks [0, 1] * image_size x num_classes
+        :param y_gt: ground truth segmantation mask
+        :return: relaxed IoU score between both
+        """
+
+        y_min = tf.reduce_sum(tf.minimum(y, y_gt), [1,2])
+        y_max = tf.reduce_sum(tf.maximum(y, y_gt), [1,2])
+        y_divide = tf.divide(y_min, y_max)
+        return tf.reduce_mean(y_divide, 1)
+
+    def _create_loss(self, score, y, y_gt):
+        """
+        loss over batch
+        :param score: score value/model output, shape=[batchsize x 1]
+        :param y: input segementation mask
+        :param y_gt: ground truth segmantation mask
+        :return:
+        """
+        sim_score = self._oracle_score(y, y_gt) # shape=[batchsize x 1]
+        loss_CE = -sim_score * tf.log(score) - (1-sim_score) * tf.log(1-score)
+        return tf.reduce_mean(loss_CE, 0), sim_score
 
 
     def build_network(self):
-        x1 = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, 3]) # 3+k
-        x2 = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, self._num_classes])
+
+        x = tf.placeholder(tf.float32, shape=[None, None, None, 3]) # 3+k between 0 and 1
+        self._graph['x'] = x
+        #y = tf.placeholder(tf.float32, shape=[None, None, None, self._num_classes]) # between zero and 1
+        y = tf.Variable(tf.zeros([self._batch_size, self._img_width, self._img_height, self._num_classes]),
+                        dtype=tf.float32)
+        self._graph['y'] = y
+        y_gt = tf.placeholder(tf.float32, shape=[None, None, None, self._num_classes]) # ground truth segmentation
+
+        self._graph['y_gt'] = y_gt
+
+        self._graph['global_step'] = tf.Variable(0, dtype=tf.int32, trainable=False, name='global_step')
+
+        x_concat = tf.concat([x, y], 3)
+
+        self._graph['conv1'] = self.conv_acti_layer(x_concat, [5,5], 64, "conv1", 1)
+        self._graph['conv2'] = self.conv_acti_layer(self._graph['conv1'], [5,5], 128, "conv2", 2)
+        self._graph['conv3'] = self.conv_acti_layer(self._graph['conv2'], [5,5], 128, "conv3", 2)
 
 
-        W_conv1 = weight_variable([5, 5, 1, 32])
-        b_conv1 = bias_variable([32])
+        conv3_flat = tf.reshape(self._graph['conv3'], [-1, 6*6*128])
 
-        x_image = tf.reshape(x, [-1,28,28,1])
-
-        h_conv1 = tf.nn.relu(conv2d(x_image, W_conv1) + b_conv1)
-        h_pool1 = max_pool_2x2(h_conv1)
-
-        W_conv2 = weight_variable([5, 5, 32, 64])
-        b_conv2 = bias_variable([64])
-
-        h_conv2 = tf.nn.relu(conv2d(h_pool1, W_conv2) + b_conv2)
-        h_pool2 = max_pool_2x2(h_conv2)
-
-        W_fc1 = weight_variable([7 * 7 * 64, 1024])
-        b_fc1 = bias_variable([1024])
-
-        h_pool2_flat = tf.reshape(h_pool2, [-1, 7*7*64])
-        h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
-
-        keep_prob = tf.placeholder(tf.float32)
-        h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
-
-        W_fc2 = weight_variable([1024, 10])
-        b_fc2 = bias_variable([10])
-
-        y_conv = tf.matmul(h_fc1_drop, W_fc2) + b_fc2
+        W_fc1 = self._weight_variable([6 * 6 * 128, 384])
+        b_fc1 = self._bias_variable([384])
+        h_fc1 = tf.nn.relu(tf.matmul(conv3_flat, W_fc1) + b_fc1)
 
 
-        # The raw formulation of cross-entropy,
-        #
-        #   tf.reduce_mean(-tf.reduce_sum(y_ * tf.log(tf.nn.softmax(y)),
-        #                                 reduction_indices=[1]))
-        #
-        # can be numerically unstable.
-        #
-        # So here we use tf.nn.softmax_cross_entropy_with_logits on the raw
-        # outputs of 'y', and then average across the batch.
-        cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y_conv, y_))
-        train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
-        correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y_,1))
-        accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+        self._graph['fc1'] = h_fc1
 
-        sess = tf.InteractiveSession()
-        tf.global_variables_initializer().run()
+        #keep_prob = tf.placeholder(tf.float32)
+        h_fc1_drop = tf.nn.dropout(h_fc1, self._keep_prob)
 
-        sess.run(tf.global_variables_initializer())
+        W_fc2 = self._weight_variable([384, 192])
+        b_fc2 = self._bias_variable([192])
+        self._graph['b_fc2'] = b_fc2
+        h_fc2 = tf.nn.relu(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
 
-        vgg = scipy.io.loadmat(path)
-        vgg_layers = vgg['layers']
+        self._graph['fc2'] = h_fc2
 
-        graph = {}
-        graph['conv1_1'] = _conv2d_relu(vgg_layers, input_image, 0, 'conv1_1')
-        graph['conv1_2'] = _conv2d_relu(vgg_layers, graph['conv1_1'], 2, 'conv1_2')
-        graph['avgpool1'] = _avgpool(graph['conv1_2'])
-        graph['conv2_1'] = _conv2d_relu(vgg_layers, graph['avgpool1'], 5, 'conv2_1')
-        graph['conv2_2'] = _conv2d_relu(vgg_layers, graph['conv2_1'], 7, 'conv2_2')
-        graph['avgpool2'] = _avgpool(graph['conv2_2'])
-        graph['conv3_1'] = _conv2d_relu(vgg_layers, graph['avgpool2'], 10, 'conv3_1')
-        graph['conv3_2'] = _conv2d_relu(vgg_layers, graph['conv3_1'], 12, 'conv3_2')
-        graph['conv3_3'] = _conv2d_relu(vgg_layers, graph['conv3_2'], 14, 'conv3_3')
-        graph['conv3_4'] = _conv2d_relu(vgg_layers, graph['conv3_3'], 16, 'conv3_4')
-        graph['avgpool3'] = _avgpool(graph['conv3_4'])
-        graph['conv4_1'] = _conv2d_relu(vgg_layers, graph['avgpool3'], 19, 'conv4_1')
-        graph['conv4_2'] = _conv2d_relu(vgg_layers, graph['conv4_1'], 21, 'conv4_2')
-        graph['conv4_3'] = _conv2d_relu(vgg_layers, graph['conv4_2'], 23, 'conv4_3')
-        graph['conv4_4'] = _conv2d_relu(vgg_layers, graph['conv4_3'], 25, 'conv4_4')
-        graph['avgpool4'] = _avgpool(graph['conv4_4'])
-        graph['conv5_1'] = _conv2d_relu(vgg_layers, graph['avgpool4'], 28, 'conv5_1')
-        graph['conv5_2'] = _conv2d_relu(vgg_layers, graph['conv5_1'], 30, 'conv5_2')
-        graph['conv5_3'] = _conv2d_relu(vgg_layers, graph['conv5_2'], 32, 'conv5_3')
-        graph['conv5_4'] = _conv2d_relu(vgg_layers, graph['conv5_3'], 34, 'conv5_4')
-        graph['avgpool5'] = _avgpool(graph['conv5_4'])
+        W_fc3 = self._weight_variable([192, 1])
+        self._graph['W_fc3'] = W_fc3
+        b_fc3 = self._bias_variable([1])
+        self._graph['b_fc3'] = b_fc3
+        y_fc3 = tf.matmul(h_fc2, W_fc3) + b_fc3
 
-        return graph
+        self._graph['y_fc3'] = y_fc3
+        o_fc3 = tf.nn.sigmoid(y_fc3) #batch_size x 1
+
+
+        self._graph['fc3'] = o_fc3
+
+        loss, sim_score = self._create_loss(o_fc3, y, y_gt)
+        self._graph['loss'] = loss
+        self._graph['sim_score'] = sim_score
+
+        optimizer = tf.train.AdamOptimizer(self._learning_rate).minimize(self._graph['loss'], global_step=self._graph['global_step'])
+        self._graph['train_optimizer'] = optimizer
+
+        inference_optimizer = tf.train.AdamOptimizer(self._learning_rate).minimize(self._graph['loss'], global_step=self._graph['global_step'], var_list=[self._graph['y']])
+        self._graph['inference_optimizer'] = inference_optimizer
+
+        return self._graph
