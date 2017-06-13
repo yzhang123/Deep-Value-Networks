@@ -84,19 +84,28 @@ class DvnNet(object):
 
     def build_network(self):
 
-        x = tf.placeholder(tf.float32, shape=[None, None, None, 3]) # 3+k between 0 and 1
-        self._graph['x'] = x
-        #y = tf.placeholder(tf.float32, shape=[None, None, None, self._num_classes]) # between zero and 1
-        y = tf.Variable(tf.zeros([self._batch_size, self._img_width, self._img_height, self._num_classes]),
-                        dtype=tf.float32)
-        self._graph['y'] = y
-        y_gt = tf.placeholder(tf.float32, shape=[None, None, None, self._num_classes]) # ground truth segmentation
-
-        self._graph['y_gt'] = y_gt
-
         self._graph['global_step'] = tf.Variable(0, dtype=tf.int32, trainable=False, name='global_step')
 
-        x_concat = tf.concat([x, y], 3)
+        x = tf.placeholder(tf.float32, shape=[None, None, None, 3]) # 3+k between 0 and 1
+        self._graph['x'] = x
+
+        y_gt = tf.placeholder(tf.float32, shape=[None, None, None, self._num_classes]) # ground truth segmentation
+        self._graph['y_gt'] = y_gt
+
+        y1 = tf.Variable(tf.zeros([self._batch_size, self._img_width, self._img_height, self._num_classes]), name='y1',
+                         dtype=tf.float32)
+        self._graph['y1'] = y1
+
+        y = tf.placeholder_with_default(y1, shape=[None, None, None, self._num_classes], name="y")
+        self._graph['y'] = y
+
+        y_assign = tf.where(tf.equal(y, y1), y1, y1.assign(y))
+        self._graph['y_assign'] = y_assign
+
+        y_clipped = tf.clip_by_value(y_assign, 0., 1.)
+        self._graph['y_clipped'] = y_clipped
+
+        x_concat = tf.concat([x, y_clipped], 3)
 
         self._graph['conv1'] = self.conv_acti_layer(x_concat, [5,5], 64, "conv1", 1)
         self._graph['conv2'] = self.conv_acti_layer(self._graph['conv1'], [5,5], 128, "conv2", 2)
@@ -133,15 +142,21 @@ class DvnNet(object):
 
 
         self._graph['fc3'] = o_fc3
-
         loss, sim_score = self._create_loss(o_fc3, y, y_gt)
         self._graph['loss'] = loss
         self._graph['sim_score'] = sim_score
 
-        optimizer = tf.train.AdamOptimizer(self._learning_rate).minimize(self._graph['loss'], global_step=self._graph['global_step'])
+        optimizer = tf.train.AdamOptimizer(self._learning_rate)
+        train_gradients = optimizer.compute_gradients(self._graph['loss'])
+        optimizer = optimizer.apply_gradients(train_gradients, global_step=self._graph['global_step'])
+
+        self._graph['train_gradients'] = train_gradients
         self._graph['train_optimizer'] = optimizer
 
-        inference_optimizer = tf.train.AdamOptimizer(self._learning_rate).minimize(self._graph['loss'], global_step=self._graph['global_step'], var_list=[self._graph['y']])
+        inference_optimizer = tf.train.AdamOptimizer(self._learning_rate)
+        inference_gradients = inference_optimizer.compute_gradients(self._graph['fc3'], var_list=[self._graph['y1']])
+        inference_optimizer = inference_optimizer.apply_gradients(inference_gradients)
         self._graph['inference_optimizer'] = inference_optimizer
+        self._graph['inference_gradients'] = inference_gradients
 
         return self._graph

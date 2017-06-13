@@ -62,11 +62,13 @@ class BatchIterator(object):
 
 class DataSet(object):
 
-    def __init__(self, img_dir, gt_dir=None, batch_size=1, size=(24, 24)):
+    def __init__(self, classes, img_dir, gt_dir=None, batch_size=1, size=(24, 24)):
 
         self.trainingSet = []
         self.validationSet = []
         self.testSet = []
+        self.classes = classes
+        self.num_classes = len(classes)
         self.img_dir = img_dir
         self.gt_dir = gt_dir
         self.color_map = self.get_color_map()
@@ -106,10 +108,10 @@ class DataSet(object):
                     if seg.mode != "RGB":
                         seg = seg.convert("RGB")
                     seg = np.asarray(seg, dtype=np.uint8)
-                    seg = color_decode(seg, self.color_map)
+                    seg = color_decode(seg, self.classes, self.color_map)
                 else:
-                    seg = np.zeros([self.size[0], self.size[1], len(self.color_map.keys())], dtype=np.float32)
-                    seg[:, :, 1] = 1.
+                    seg = np.zeros([self.size[0], self.size[1], self.num_classes], dtype=np.float32)
+                    seg[:, :, 0] = 1.
 
                 yield [img, seg]
 
@@ -126,10 +128,8 @@ class DataSet(object):
 
     def get_color_map(self):
         color_dict = dict()
-        class1_color = [0, 0, 0]
-        class2_color = [255, 255, 255]
-        color_dict['horse'] = class2_color
-        color_dict['__background__'] = class1_color
+        color_dict['__background__'] = [0, 0, 0]
+        color_dict['horse'] = [255, 255, 255]
         return color_dict
 
 
@@ -144,6 +144,11 @@ class DataSet(object):
             mean_pixel += img
         mean_pixel = mean_pixel / len(files)
         return mean_pixel
+
+
+#---------------------
+# helper functions
+# ---------------------
 
 def get_data_tuples(img_dir, labels_dir):
     """
@@ -164,10 +169,11 @@ def get_data_tuples(img_dir, labels_dir):
     else:
         return [(img_files[i], None) for i in range(len(img_files))]
 
-def color_decode(orig_img, color_map):
-    num_classes = len(color_map.keys())
-    seg = np.zeros([orig_img.shape[0], orig_img.shape[1], num_classes], dtype=np.float32)
-    for id, key in enumerate(color_map.keys()):
+def color_decode(orig_img, classes, color_map):
+    seg = np.zeros([orig_img.shape[0], orig_img.shape[1], len(classes)], dtype=np.float32)
+    for id, key in enumerate(classes):
         seg[:, :, id] = np.all(orig_img == color_map[key], axis = 2)
     return seg
+
+
 
