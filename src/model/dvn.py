@@ -13,7 +13,7 @@ import numpy as np
 
 
 class DvnNet(object):
-    def __init__(self, classes=None, batch_size=1, img_width=24, img_height=24):
+    def __init__(self, classes=None, batch_size=1, img_height=24, img_width=24):
         self._batch_size = batch_size
         self._img_width = img_width
         self._img_height = img_height
@@ -29,22 +29,22 @@ class DvnNet(object):
             pre_depth = bottom.get_shape()[3].value
             weights_shape = filter_shape + [pre_depth, filter_depth]
 
+
             weight = tf.get_variable(name + "_weight", weights_shape,
                                      initializer=tf.orthogonal_initializer(gain=1.0, seed=None),
                                      collections=['variables'])
             bias = tf.get_variable(name + "_bias", filter_depth, initializer=tf.constant_initializer(0.001),
                                    collections=['variables'])
-
             conv = tf.nn.conv2d(bottom, weight, strides=strides, padding=padding)
             return tf.nn.relu(conv + bias)
 
-    def _weight_variable(self, shape):
+    def _weight_variable(self, shape, name=None):
       initial = tf.truncated_normal(shape, stddev=0.1)
-      return tf.Variable(initial)
+      return tf.Variable(initial, name=name)
 
-    def _bias_variable(self, shape):
+    def _bias_variable(self, shape, name=None):
       initial = tf.constant(0.001, shape=shape)
-      return tf.Variable(initial)
+      return tf.Variable(initial, name=name)
 
     def _conv2d(self, x, W, stride=1):
       return tf.nn.conv2d(x, W, strides=[1, stride, stride, 1], padding='SAME')
@@ -92,43 +92,33 @@ class DvnNet(object):
         y_gt = tf.placeholder(tf.float32, shape=[None, None, None, self._num_classes]) # ground truth segmentation
         self._graph['y_gt'] = y_gt
 
-        y1 = tf.Variable(tf.zeros([self._batch_size, self._img_width, self._img_height, self._num_classes]), name='y1',
+        y1 = tf.Variable(tf.zeros([self._batch_size, self._img_height, self._img_width, self._num_classes]), trainable=True, name='y1',
                          dtype=tf.float32)
         self._graph['y1'] = y1
 
         y = tf.placeholder_with_default(y1, shape=[None, None, None, self._num_classes], name="y")
         self._graph['y'] = y
 
-        y_assign = tf.where(tf.equal(y, y1), y1, y1.assign(y))
-        self._graph['y_assign'] = y_assign
+        identity = tf.identity(y)
 
-        y_clipped = tf.clip_by_value(y_assign, 0., 1.)
-        self._graph['y_clipped'] = y_clipped
+        self._graph['identity'] = identity
 
-        x_concat = tf.concat([x, y_clipped], 3)
+        x_concat = tf.concat([x, identity], 3)
 
         self._graph['conv1'] = self.conv_acti_layer(x_concat, [5,5], 64, "conv1", 1)
         self._graph['conv2'] = self.conv_acti_layer(self._graph['conv1'], [5,5], 128, "conv2", 2)
         self._graph['conv3'] = self.conv_acti_layer(self._graph['conv2'], [5,5], 128, "conv3", 2)
-
-
         conv3_flat = tf.reshape(self._graph['conv3'], [-1, 6*6*128])
-
         W_fc1 = self._weight_variable([6 * 6 * 128, 384])
         b_fc1 = self._bias_variable([384])
         h_fc1 = tf.nn.relu(tf.matmul(conv3_flat, W_fc1) + b_fc1)
-
-
         self._graph['fc1'] = h_fc1
-
         #keep_prob = tf.placeholder(tf.float32)
         h_fc1_drop = tf.nn.dropout(h_fc1, self._keep_prob)
-
         W_fc2 = self._weight_variable([384, 192])
         b_fc2 = self._bias_variable([192])
         self._graph['b_fc2'] = b_fc2
         h_fc2 = tf.nn.relu(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
-
         self._graph['fc2'] = h_fc2
 
         W_fc3 = self._weight_variable([192, 1])
@@ -139,8 +129,6 @@ class DvnNet(object):
 
         self._graph['y_fc3'] = y_fc3
         o_fc3 = tf.nn.sigmoid(y_fc3) #batch_size x 1
-
-
         self._graph['fc3'] = o_fc3
         loss, sim_score = self._create_loss(o_fc3, y, y_gt)
         self._graph['loss'] = loss
@@ -148,15 +136,24 @@ class DvnNet(object):
 
         optimizer = tf.train.AdamOptimizer(self._learning_rate)
         train_gradients = optimizer.compute_gradients(self._graph['loss'])
-        optimizer = optimizer.apply_gradients(train_gradients, global_step=self._graph['global_step'])
-
+        optimizer = optimizer.apply_gradients(train_gradients[1:], global_step=self._graph['global_step']) # protect y1:0 from being updated
         self._graph['train_gradients'] = train_gradients
         self._graph['train_optimizer'] = optimizer
 
-        inference_optimizer = tf.train.AdamOptimizer(self._learning_rate)
-        inference_gradients = inference_optimizer.compute_gradients(self._graph['fc3'], var_list=[self._graph['y1']])
-        inference_optimizer = inference_optimizer.apply_gradients(inference_gradients)
-        self._graph['inference_optimizer'] = inference_optimizer
-        self._graph['inference_gradients'] = inference_gradients
+        input_grad = tf.gradients(self._graph['loss'], identity)
+        self._graph['input_grad'] = input_grad
+
+        input_update = y1.assign(tf.clip_by_value(tf.subtract(identity, input_grad[0]), 0., 1.))
+        self._graph['input_update'] = input_update
+
+
+        inference_grad = tf.gradients(self._graph['fc3'], identity)
+        self._graph['inference_grad'] = inference_grad
+
+        inference_update = y1.assign(tf.clip_by_value(tf.subtract(identity, inference_grad[0]), 0., 1.))
+        self._graph['inference_update'] = inference_update
+
 
         return self._graph
+
+

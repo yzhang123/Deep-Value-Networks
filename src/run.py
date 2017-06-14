@@ -13,7 +13,7 @@ import os
 import sys
 from os.path import join
 import argparse
-import _init_paths
+#import _init_paths
 print(sys.path)
 from understand_tensorflow.src.deeplearning import save_model
 
@@ -48,14 +48,23 @@ def train(graph, data):
 
             feed_dict = {graph['x']: img, graph['y_gt']: img_gt, graph['y']: img_gt}
 
-            #sess.run(graph['y'].assign(img_gt))
-            out, x, y = sess.run([graph['y_clipped'], graph['fc3'], graph['loss']], feed_dict=feed_dict)
-            _, gradients, loss, gt_diff = sess.run([graph['train_optimizer'], graph['train_gradients'], graph['loss'], graph['sim_score']],
+            _, loss, y1 = sess.run([graph['train_optimizer'], graph['loss'], graph['y1']],
+                                        feed_dict=feed_dict)
+            print(iter)
+            #print(graph['y1'].eval())
+            input_update, input_grad, y1 = sess.run([graph['input_update'], graph['input_grad'], graph['y1']],
                                         feed_dict=feed_dict)
 
-            print(out)
 
-            print("iteration %s: loss = %s, sim_score = %s" % (iter, loss[0], gt_diff[0]))
+            print('input_grad')
+            print(input_grad)
+            print('input_update')
+            print(input_update)
+            print('y1')
+            print(sess.run(graph['y1']))
+            print('identity')
+            print(sess.run(graph['identity']))
+            print("iteration %s: loss = %s" % (iter, loss[0]))
 
             #save model?
             if iter % ITERS_PER_SAVE == 0:
@@ -79,12 +88,14 @@ def test(graph, modelpath, data):
         iter = 0
         for img, img_gt in data:
             feed_dict = {graph['x']: img, graph['y']: black_batch}
-            score = sess.run(graph['inference_optimizer'], feed_dict=feed_dict)
+            inference_update = sess.run([graph['inference_update']], feed_dict=feed_dict)
+            print("iter %s" % iter)
+            print(inference_update)
             for i in range(ITERS):
                 feed_dict = {graph['x']: img}
-                score = sess.run(graph['inference_optimizer'], feed_dict=feed_dict)
-            seg_pred =  graph['y_clipped'].eval()
-            print(seg_pred)
+                inference_update = sess.run(graph['inference_update'], feed_dict=feed_dict)
+                print(i)
+                print(inference_update)
             #labels = pred_to_label(seg_pred)
             #for x in labels:
             #    print(x)
