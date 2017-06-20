@@ -6,10 +6,10 @@ from builtins import *
 
 
 import tensorflow as tf
-import tensorflow.contrib.slim as slim
-from tensorflow.contrib.slim import losses
-from tensorflow.contrib.slim import arg_scope
 import numpy as np
+import sys
+#print(sys.path)
+from dvn.src.util.loss import _oracle_score
 
 
 class DvnNet(object):
@@ -20,6 +20,7 @@ class DvnNet(object):
         self._classes = classes
         self._num_classes = len(classes)
         self._graph = {}
+        #self._learning_rate = 0.01
         self._learning_rate = 0.0001
         self._keep_prob = 0.75
 
@@ -56,19 +57,6 @@ class DvnNet(object):
       return tf.nn.max_pool(x, ksize=[1, size, size, 1],
                             strides=[1, stride, stride, 1], padding='SAME')
 
-    def _oracle_score(self, y, y_gt):
-        """
-        also referred to as v*
-        :param y: segmantation masks [0, 1] * image_size x num_classes
-        :param y_gt: ground truth segmantation mask
-        :return: relaxed IoU score between both
-        """
-
-        y_min = tf.reduce_sum(tf.minimum(y, y_gt), [1,2])
-        y_max = tf.reduce_sum(tf.maximum(y, y_gt), [1,2])
-        y_divide = tf.divide(y_min, y_max)
-        return tf.reduce_mean(y_divide, 1)
-
     def _create_loss(self, score, y, y_gt):
         """
         loss over batch
@@ -77,83 +65,75 @@ class DvnNet(object):
         :param y_gt: ground truth segmantation mask
         :return:
         """
-        sim_score = self._oracle_score(y, y_gt) # shape=[batchsize x 1]
+        sim_score = _oracle_score(y, y_gt) # shape=[batchsize x 1]
         loss_CE = -sim_score * tf.log(score) - (1-sim_score) * tf.log(1-score)
         return tf.reduce_mean(loss_CE, 0), sim_score
 
 
-    def build_network(self):
+    def build_network(self, train=True):
 
         self._graph['global_step'] = tf.Variable(0, dtype=tf.int32, trainable=False, name='global_step')
 
-        x = tf.placeholder(tf.float32, shape=[None, None, None, 3]) # 3+k between 0 and 1
-        self._graph['x'] = x
+        self._graph['x'] = tf.placeholder(tf.float32, shape=[None, None, None, 3]) # 3+k between 0 and 1
 
-        y_gt = tf.placeholder(tf.float32, shape=[None, None, None, self._num_classes]) # ground truth segmentation
-        self._graph['y_gt'] = y_gt
+        self._graph['y_gt'] = tf.placeholder(tf.float32, shape=[None, None, None, self._num_classes]) # ground truth segmentation
 
-        y1 = tf.Variable(tf.zeros([self._batch_size, self._img_height, self._img_width, self._num_classes]), trainable=True, name='y1',
+        self._graph['y1'] = tf.Variable(tf.zeros([self._batch_size, self._img_height, self._img_width, self._num_classes]), trainable=True, name='y1',
                          dtype=tf.float32)
-        self._graph['y1'] = y1
 
-        y = tf.placeholder_with_default(y1, shape=[None, None, None, self._num_classes], name="y")
-        self._graph['y'] = y
+        self._graph['y'] = tf.placeholder_with_default(self._graph['y1'], shape=[None, None, None, self._num_classes], name="y")
 
-        identity = tf.identity(y)
+        self._graph['identity'] = tf.identity(self._graph['y'])
 
-        self._graph['identity'] = identity
+        self.x_concat = tf.concat([self._graph['x'], self._graph['identity']], 3)
 
-        x_concat = tf.concat([x, identity], 3)
-
-        self._graph['conv1'] = self.conv_acti_layer(x_concat, [5,5], 64, "conv1", 1)
+        self._graph['conv1'] = self.conv_acti_layer(self.x_concat, [5,5], 64, "conv1", 1)
         self._graph['conv2'] = self.conv_acti_layer(self._graph['conv1'], [5,5], 128, "conv2", 2)
         self._graph['conv3'] = self.conv_acti_layer(self._graph['conv2'], [5,5], 128, "conv3", 2)
-        conv3_flat = tf.reshape(self._graph['conv3'], [-1, 6*6*128])
+
+        self.conv3_flat = tf.reshape(self._graph['conv3'], [-1, 6*6*128])
         W_fc1 = self._weight_variable([6 * 6 * 128, 384])
         b_fc1 = self._bias_variable([384])
-        h_fc1 = tf.nn.relu(tf.matmul(conv3_flat, W_fc1) + b_fc1)
-        self._graph['fc1'] = h_fc1
+        self._graph['fc1'] = tf.nn.relu(tf.matmul(self.conv3_flat, W_fc1) + b_fc1)
         #keep_prob = tf.placeholder(tf.float32)
-        h_fc1_drop = tf.nn.dropout(h_fc1, self._keep_prob)
+        if train:
+            self._graph['fc1'] = tf.nn.dropout(self._graph['fc1'], self._keep_prob)
+
         W_fc2 = self._weight_variable([384, 192])
         b_fc2 = self._bias_variable([192])
-        self._graph['b_fc2'] = b_fc2
-        h_fc2 = tf.nn.relu(tf.matmul(h_fc1_drop, W_fc2) + b_fc2)
-        self._graph['fc2'] = h_fc2
+        self._graph['fc2'] = tf.nn.relu(tf.matmul(self._graph['fc1'], W_fc2) + b_fc2)
 
         W_fc3 = self._weight_variable([192, 1])
-        self._graph['W_fc3'] = W_fc3
         b_fc3 = self._bias_variable([1])
-        self._graph['b_fc3'] = b_fc3
-        y_fc3 = tf.matmul(h_fc2, W_fc3) + b_fc3
+        self._graph['y_fc3'] = tf.matmul(self._graph['fc2'], W_fc3) + b_fc3
 
-        self._graph['y_fc3'] = y_fc3
-        o_fc3 = tf.nn.sigmoid(y_fc3) #batch_size x 1
-        self._graph['fc3'] = o_fc3
-        loss, sim_score = self._create_loss(o_fc3, y, y_gt)
-        self._graph['loss'] = loss
-        self._graph['sim_score'] = sim_score
+        self._graph['fc3'] = tf.nn.sigmoid(self._graph['y_fc3']) #batch_size x 1
+        self._graph['loss'], self._graph['sim_score'] = self._create_loss(self._graph['fc3'], self._graph['y'], self._graph['y_gt'])
 
         optimizer = tf.train.AdamOptimizer(self._learning_rate)
-        train_gradients = optimizer.compute_gradients(self._graph['loss'])
-        optimizer = optimizer.apply_gradients(train_gradients[1:], global_step=self._graph['global_step']) # protect y1:0 from being updated
-        self._graph['train_gradients'] = train_gradients
-        self._graph['train_optimizer'] = optimizer
+        self._graph['train_gradients'] = optimizer.compute_gradients(self._graph['loss'])
+        self._graph['train_optimizer'] = optimizer.apply_gradients(self._graph['train_gradients'][1:], global_step=self._graph['global_step']) # protect y1:0 from being updated
 
-        input_grad = tf.gradients(self._graph['loss'], identity)
-        self._graph['input_grad'] = input_grad
+        self._graph['inference_grad'] = tf.gradients(self._graph['fc3'], self._graph['identity'])
+        #self._graph['inference_grad'] = tf.Print(self._graph['inference_grad'],
+        #                                         [self._graph['inference_grad']],
+        #                                         message="This is inference_grad: ",
+        #                                         first_n=50)
+        self._graph['inference_update'] = self._graph['y1'].assign(tf.clip_by_value(tf.subtract(self._graph['identity'], self._graph['inference_grad'][0]), 0., 1.))
+        #self._graph['inference_update'] = tf.Print(self._graph['inference_update'],
+        #                                           [self._graph['inference_update']],
+        #                                           message="This is inference_update: ",
+        #                                           first_n=50)
 
-        input_update = y1.assign(tf.clip_by_value(tf.subtract(identity, input_grad[0]), 0., 1.))
-        self._graph['input_update'] = input_update
 
-
-        inference_grad = tf.gradients(self._graph['fc3'], identity)
-        self._graph['inference_grad'] = inference_grad
-
-        inference_update = y1.assign(tf.clip_by_value(tf.subtract(identity, inference_grad[0]), 0., 1.))
-        self._graph['inference_update'] = inference_update
+        self._graph['adverse_grad'] = tf.gradients(self._graph['fc3'], self._graph['identity'])
+        self._graph['adverse_update'] = self._graph['y1'].assign(
+            tf.clip_by_value(tf.add(self._graph['identity'], self._graph['inference_grad'][0]), 0., 1.))
 
 
         return self._graph
+
+
+
 
 
