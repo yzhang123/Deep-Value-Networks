@@ -91,13 +91,10 @@ def test(graph, modelpath, data):
         iter = 0
         for img, mask, img_gt in generator.black():
             inference_update = infer(sess, graph, img, mask)
-            labels = pred_to_label(inference_update)
+            #labels = pred_to_label(inference_update)
             mapp_pred = result_sample_mapping(img_gt, inference_update)
-            write_image(mapp_pred, iter, '')
+            write_image(mapp_pred, -1, data.index_list[iter])
             iter += 1
-            if iter >= ITERS_TRAIN:
-                break
-
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -124,11 +121,11 @@ if __name__== "__main__":
 
     if args.train:
         graph = net.build_network(train=True)
-        train_data = DataSet(classes, img_path, img_gt_path, batch_size=BATCH_SIZE)
+        train_data = DataSet(classes, img_path, img_gt_path, batch_size=BATCH_SIZE, train=True)
         train(graph, train_data)
     else:
         graph = net.build_network(train=False)
-        test_data = DataSet(classes, test_img_path, img_gt_path, batch_size=BATCH_SIZE)
+        test_data = DataSet(classes, test_img_path, img_gt_path, batch_size=BATCH_SIZE, train=False)
         modelpath = '/home/yang/projects/dvn/checkpoints/model-50'
         test(graph, modelpath, test_data)
 

@@ -5,16 +5,12 @@ from __future__ import (absolute_import, division,
 from builtins import *
 
 
-import tensorflow as tf
-import tensorflow.contrib.slim as slim
-from tensorflow.contrib.slim import losses
-from tensorflow.contrib.slim import arg_scope
 import numpy as np
 import random
 from PIL import Image
 import os
-from os import listdir
 from os.path import isfile, join
+from dvn.src.util.data import get_data_tuples, color_decode, get_image_index_list
 
 
 class BatchIterator(object):
@@ -62,7 +58,7 @@ class BatchIterator(object):
 
 class DataSet(object):
 
-    def __init__(self, classes, img_dir, gt_dir=None, batch_size=1, size=(24, 24)):
+    def __init__(self, classes, img_dir, gt_dir=None, batch_size=1, size=(24, 24), train=True):
 
         self.trainingSet = []
         self.validationSet = []
@@ -74,14 +70,15 @@ class DataSet(object):
         self.color_map = self.get_color_map()
         self.size = size
         self.batch_size = batch_size
-        self.data_tuples = get_data_tuples(img_dir, gt_dir)
+        self.index_list, self.img_ext = get_image_index_list(img_dir)
+        self.data_tuples = get_data_tuples(img_dir, gt_dir, self.index_list, self.img_ext)
         self.mean_pixel = self.get_mean_pixel(img_dir)
-        self.batch_iterator = BatchIterator(self.image_iterator(self.data_tuples), batch_size=batch_size)
+        self.batch_iterator = BatchIterator(self.image_iterator(self.data_tuples, repeat=train, shuffle=train), batch_size=batch_size)
 
     def __iter__(self):
         return iter(self.batch_iterator)
 
-    def image_iterator(self, data_tuples, repeat=True, shuffle=True):
+    def image_iterator(self, data_tuples, index_list=None, repeat=True, shuffle=True):
         #assert isinstance(data_tuples, list), "data tuples it not list but %s " % type(data_tuples)
         if shuffle:
             random.shuffle(data_tuples)
@@ -146,34 +143,6 @@ class DataSet(object):
         return mean_pixel
 
 
-#---------------------
-# helper functions
-# ---------------------
-
-def get_data_tuples(img_dir, labels_dir):
-    """
-    returns file names without predecing path in the dataPath directory
-    :param dataPath: directory
-    :return:
-    """
-    assert os.path.exists(img_dir), "img dir %s doesnt exist" % img_dir
-
-    files = [f for f in listdir(img_dir) if isfile(join(img_dir, f))]
-    img_files = [join(img_dir, f) for f in files]
-
-    if labels_dir:
-        assert os.path.exists(labels_dir), "labels dir %s doesnt exist" % labels_dir
-        label_files = [join(labels_dir, f) for f in files]
-        assert len(img_files) == len(label_files), "image and label file numbers do not match"
-        return [(img_files[i], label_files[i]) for i in range(len(img_files))]
-    else:
-        return [(img_files[i], None) for i in range(len(img_files))]
-
-def color_decode(orig_img, classes, color_map):
-    seg = np.zeros([orig_img.shape[0], orig_img.shape[1], len(classes)], dtype=np.float32)
-    for id, key in enumerate(classes):
-        seg[:, :, id] = np.all(orig_img == color_map[key], axis = 2)
-    return seg
 
 
 
