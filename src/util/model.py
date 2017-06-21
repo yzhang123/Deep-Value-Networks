@@ -16,3 +16,18 @@ def inference(sess, graph, img, img_mask):
         # print(inference_update)
 
     return inference_update
+
+def adversarial(sess, graph, img, img_mask):
+
+    feed_dict = {graph['x']: img, graph['y']: img_mask}
+
+    adverse_update, adverse_grad = sess.run([graph['adverse_update'], graph['adverse_grad']], feed_dict=feed_dict)
+    print("generated data after first adverse_update")
+    print(adverse_grad)
+    print(adverse_update)
+    for i in range(ITERS):
+        feed_dict = {graph['x']: img}
+        adverse_update = sess.run(graph['adverse_update'], feed_dict=feed_dict)
+        # print(adverse_update)
+
+    return adverse_update

@@ -2,8 +2,8 @@ import numpy as np
 import random
 from os.path import join, dirname, abspath
 from dvn.src.util.loss import _oracle_score_cpu
-from dvn.src.util.data import randomMask
-from dvn.src.util.model import inference as infer
+from dvn.src.util.data import randomMask, blackMask
+from dvn.src.util.model import inference as infer, adversarial as adverse
 
 
 module_path = abspath(__file__)
@@ -23,27 +23,18 @@ class DataGenerator(object):
     def generate(self):
         #return random.choice(self.generators)()
         #return self.random()
-        return self.inference()
+        return self.adversarial()
 
     def gt(self):
         for img, img_gt in self.data:
             yield img, img_gt, img_gt
 
     def black(self):
-        black_batch = np.zeros([1, self.data.size[0], self.data.size[1], self.data.num_classes], dtype=np.float32)
-        black_batch[:, :, :, 0] = 1.
+        shape = (1, self.data.size[0], self.data.size[1], self.data.num_classes)
+        black_batch = blackMask(shape)
         for img, img_gt in self.data:
             yield img, black_batch, img_gt
 
-    def inference(self):
-        print("inference")
-        black_batch = np.zeros([1, self.data.size[0], self.data.size[1], self.data.num_classes], dtype=np.float32)
-        black_batch[:, :, :, 0] = 1.
-
-        ITERS = 30
-        for img, img_gt in self.data:
-            inference_update = infer(self.sess, self.graph, img, black_batch)
-            yield img, inference_update, img_gt
 
     def random(self):
         theta = 0.05
@@ -58,29 +49,27 @@ class DataGenerator(object):
                 print(prob)
                 rand = np.random.rand()
                 print(rand)
-                if rand < prob :
+                if rand < prob:
                     yield img, random_batch, img_gt
                     break
-                else:
-                    print('fail')
+                # else:
+                #     print('fail')
 
+    def inference(self):
+        shape = (1, self.data.size[0], self.data.size[1], self.data.num_classes)
+        black_batch = blackMask(shape)
 
-    def adversarial(self):
-        black_batch = np.zeros([1, self.data.size[0], self.data.size[1], self.data.num_classes], dtype=np.float32)
-        black_batch[:, :, :, 0] = 1.
-
-        ITERS = 30
         for img, img_gt in self.data:
-            feed_dict = {self.graph['x']: img, self.graph['y']: black_batch}
-            inference_update = self.run([self.graph['adverse_update']], feed_dict=feed_dict)
-            for i in range(ITERS):
-                feed_dict = {self.graph['x']: img}
-                inference_update = self.run(self.graph['adverse_update'], feed_dict=feed_dict)
+            inference_update = infer(self.sess, self.graph, img, black_batch)
             yield img, inference_update, img_gt
 
-    def run(self, fetches, feed_dict=None):
-        return self.sess.run(fetches, feed_dict)
+    def adversarial(self):
+        shape = (1, self.data.size[0], self.data.size[1], self.data.num_classes)
+        black_batch = blackMask(shape)
 
+        for img, img_gt in self.data:
+            adversarial_update = adverse(self.sess, self.graph, img, black_batch)
+            yield img, adversarial_update, img_gt
 
 
 
