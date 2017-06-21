@@ -21,12 +21,16 @@ class DataGenerator(object):
         #self.generators = [self.gt, self.inference, self.random]
 
     def generate(self):
-        #return random.choice(self.generators)()
+        functions = map(lambda x: x(), self.generators)
+        while True:
+            yield next(random.choice(functions))
         #return self.random()
-        return self.adversarial()
+        #return self.adversarial()
 
     def gt(self):
         for img, img_gt in self.data:
+
+            print("gt")
             yield img, img_gt, img_gt
 
     def black(self):
@@ -39,16 +43,15 @@ class DataGenerator(object):
     def random(self):
         theta = 0.05
         for img, img_gt in self.data:
+
+            print("random")
             while True:
                 shape = (1, self.data.size[0], self.data.size[1], self.data.num_classes)
                 random_batch = randomMask(shape)
                 sim = _oracle_score_cpu(random_batch, img_gt)
-                print("sim %s" %sim)
                 norm_factor = 1./ (np.exp(theta) - 1)
                 prob = norm_factor * np.exp(theta * sim[0]) - norm_factor
-                print(prob)
                 rand = np.random.rand()
-                print(rand)
                 if rand < prob:
                     yield img, random_batch, img_gt
                     break
@@ -60,6 +63,7 @@ class DataGenerator(object):
         black_batch = blackMask(shape)
 
         for img, img_gt in self.data:
+            print("inference")
             inference_update = infer(self.sess, self.graph, img, black_batch)
             yield img, inference_update, img_gt
 
@@ -68,6 +72,7 @@ class DataGenerator(object):
         black_batch = blackMask(shape)
 
         for img, img_gt in self.data:
+            print("adversarial")
             adversarial_update = adverse(self.sess, self.graph, img, black_batch)
             yield img, adversarial_update, img_gt
 

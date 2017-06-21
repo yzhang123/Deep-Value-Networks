@@ -21,7 +21,7 @@ class DvnNet(object):
         self._num_classes = len(classes)
         self._graph = {}
         #self._learning_rate = 0.01
-        self._learning_rate = 0.0001
+        self._learning_rate = 0.001
         self._keep_prob = 0.75
 
     def conv_acti_layer(self, bottom, filter_shape, filter_depth, name, stride, padding='SAME'):
@@ -60,9 +60,9 @@ class DvnNet(object):
     def _create_loss(self, score, y, y_gt):
         """
         loss over batch
-        :param score: score value/model output, shape=[batchsize x 1]
-        :param y: input segementation mask
-        :param y_gt: ground truth segmantation mask
+        :param score:   score value/model output, shape=[batchsize x 1]
+        :param y    :   input segementation mask
+        :param y_gt :   ground truth segmantation mask
         :return:
         """
         sim_score = _oracle_score(y, y_gt) # shape=[batchsize x 1]

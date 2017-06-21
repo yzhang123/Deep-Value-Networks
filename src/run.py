@@ -56,7 +56,7 @@ def train(graph, data):
 
         generator = DataGenerator(sess, graph, data)
         for img, mask, img_gt in generator.generate():
-            print(iter)
+            # print(iter)
 
             feed_dict = {graph['x']: img, graph['y_gt']: img_gt, graph['y']: mask}
             _, loss = sess.run([graph['train_optimizer'], graph['loss']], feed_dict=feed_dict)
