@@ -16,12 +16,14 @@ import argparse
 from scipy.misc import imsave
 
 from understand_tensorflow.src.deeplearning import save_model
-from dkfz.convnet.generate_images import save_images
 #from dkfz.train import result_sample_mapping
-
 from model.dvn import DvnNet
-from data.data_set import DataSet
+from dvn.src.data.data_set import DataSet
 from dvn.src.data.generate_data import DataGenerator
+from dvn.src.util.data import pred_to_label, label_to_colorimg, blackMask
+from dvn.src.util.io import write_image
+from dvn.src.util.model import inference as infer
+
 
 
 
@@ -32,9 +34,15 @@ root_path = join(dir_path, "../")
 
 
 
-ITERS = 60
+# Number of training iterations
+ITERS_TRAIN = 60
+# Number of inference iterations
+ITERS_TEST = 30
+# Number of iterations after a snapshot of the model is saved
 ITERS_PER_SAVE = 50
+# absolute path where model snapshots are saved
 SAVE_PATH = join(root_path, 'checkpoints/')
+# number of batch size of incoming data
 BATCH_SIZE = 1
 
 def train(graph, data):
@@ -47,83 +55,48 @@ def train(graph, data):
         iter = initial_step = graph['global_step'].eval()
 
         generator = DataGenerator(sess, graph, data)
-        print("generator")
-        for img, mask, gt in generator.generate():
-            print("img")
-            iter += 1
-            feed_dict = {graph['x']: img, graph['y_gt']: gt, graph['y']: mask}
-
-            _, loss = sess.run([graph['train_optimizer'], graph['loss']], feed_dict=feed_dict)
-
+        for img, mask, img_gt in generator.generate():
             print(iter)
+
+            feed_dict = {graph['x']: img, graph['y_gt']: img_gt, graph['y']: mask}
+            _, loss = sess.run([graph['train_optimizer'], graph['loss']], feed_dict=feed_dict)
 
             feed_dict = {graph['x']: img, graph['y']: mask}
             identity, inference_update, inference_grad = sess.run([graph['identity'], graph['inference_update'],
                                                                    graph['inference_grad']], feed_dict=feed_dict)
+
             print('inference_grad')
             print(inference_grad[0])
             print('inference_update')
             print(inference_update)
             print("iteration %s: loss = %s" % (iter, loss[0]))
 
-            #save model?
+            iter += 1
+            #save model
             if iter % ITERS_PER_SAVE == 0:
                 save_model(sess, SAVE_PATH, 'model', global_step=iter)
-            if iter >= initial_step + ITERS:
+            if iter >= initial_step + ITERS_TRAIN:
                 break
-
-def inference(sess, data, graph):
-    black_batch = np.zeros([1, data.size[0], data.size[1], data.num_classes], dtype=np.float32)
-    black_batch[:, :, :, 0] = 1.
-    print(black_batch.shape)
-
-    ITERS = 30
-    for img, img_gt in data:
-        '''
-        feed_dict = {graph['x']: img, graph['y']: black_batch}
-        inference_grad, inference_update = sess.run([graph['inference_grad'],graph['inference_update']], feed_dict=feed_dict)
-        #print("iter %s" % iter)
-        #print(identity)
-        print(inference_grad)
-        print(inference_update)
-        for i in range(ITERS):
-            feed_dict = {graph['x']: img}
-            inference_update = sess.run(graph['inference_update'], feed_dict=feed_dict)
-            print(inference_update)
-        '''
-        yield img, img_gt, img_gt
 
 
 def test(graph, modelpath, data):
-    ITERS = 50
     with tf.Session() as sess:
 
         tf.global_variables_initializer().run()
-        saver = tf.train.import_meta_graph(modelpath)
+        saver = tf.train.import_meta_graph(modelpath + '.meta')
         #saver.restore(sess, tf.train.latest_checkpoint(os.path.dirname(modelpath)))
-        saver.restore(sess, '/home/yang/projects/dvn/checkpoints/model-50')
+        saver.restore(sess, modelpath)
 
-        black_batch = np.zeros([1, data.size[0], data.size[1], data.num_classes], dtype=np.float32)
-        black_batch[:, :, :, 0] = 1.
-
+        generator = DataGenerator(sess, graph, data)
         iter = 0
-        for img, img_gt in data:
-            feed_dict = {graph['x']: img, graph['y']: black_batch}
-            inference_update = sess.run([graph['inference_update']], feed_dict=feed_dict)
-            print("iter %s" % iter)
-            print(inference_update)
-            for i in range(ITERS):
-                feed_dict = {graph['x']: img}
-                inference_update = sess.run(graph['inference_update'], feed_dict=feed_dict)
-                print(i)
-                print(inference_update)
+        for img, mask, img_gt in generator.black():
+            inference_update = infer(sess, graph, img, mask)
             labels = pred_to_label(inference_update)
-            #for x in labels:
-            #    print(x)
             mapp_pred = result_sample_mapping(img_gt, inference_update)
             write_image(mapp_pred, iter, '')
             iter += 1
-
+            if iter >= ITERS_TRAIN:
+                break
 
 def result_sample_mapping(gt_labels, pred_labels):
     """
@@ -156,23 +129,6 @@ def result_sample_mapping(gt_labels, pred_labels):
     return mapped_pred
 
 
-def pred_to_label(seg_masks):
-    pred_labels = np.argmax(seg_masks, -1)
-    return pred_labels
-
-def label_to_colorimg(pred_labels, classes, color_map):
-    imgs = np.zeros((pred_labels.shape[0], pred_labels.shape[1], pred_labels.shape[2], 3))
-    for idx, c in enumerate(classes):
-        class_mask = pred_labels == idx
-        imgs[class_mask] = color_map[c]
-
-def write_image(images, iteration, name, mapping=True):
-    if mapping:
-        images = ((images + 1.) * (255.99 / 2)).astype('int32')
-    else:
-        images = images.astype('int32')
-    save_images(images, root_path + '/output/' + name + '{}.png'.format(iteration), False)
-
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -202,7 +158,7 @@ if __name__== "__main__":
     else:
         graph = net.build_network(train=False)
         test_data = DataSet(classes, test_img_path, img_gt_path, batch_size=BATCH_SIZE)
-        modelpath = '/home/yang/projects/dvn/checkpoints/model-50.meta'
+        modelpath = '/home/yang/projects/dvn/checkpoints/model-50'
         test(graph, modelpath, test_data)
 
 

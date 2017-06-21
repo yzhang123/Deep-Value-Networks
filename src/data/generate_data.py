@@ -2,6 +2,8 @@ import numpy as np
 import random
 from os.path import join, dirname, abspath
 from dvn.src.util.loss import _oracle_score_cpu
+from dvn.src.util.data import randomMask
+from dvn.src.util.model import inference as infer
 
 
 module_path = abspath(__file__)
@@ -12,7 +14,7 @@ SAVE_PATH = join(root_path, 'checkpoints/')
 class DataGenerator(object):
 
     def __init__(self, sess, graph, data):
-        self.session = sess
+        self.sess = sess
         self.graph = graph
         self.data = data # (img, img_gt)
         self.generators = [self.gt, self.inference, self.random, self.adversarial]
@@ -27,32 +29,21 @@ class DataGenerator(object):
         for img, img_gt in self.data:
             yield img, img_gt, img_gt
 
+    def black(self):
+        black_batch = np.zeros([1, self.data.size[0], self.data.size[1], self.data.num_classes], dtype=np.float32)
+        black_batch[:, :, :, 0] = 1.
+        for img, img_gt in self.data:
+            yield img, black_batch, img_gt
 
     def inference(self):
         print("inference")
         black_batch = np.zeros([1, self.data.size[0], self.data.size[1], self.data.num_classes], dtype=np.float32)
         black_batch[:, :, :, 0] = 1.
-        print(black_batch.shape)
 
         ITERS = 30
         for img, img_gt in self.data:
-            feed_dict = {self.graph['x']: img, self.graph['y']: black_batch}
-            print("prior inference")
-            print("eval")
-            #print(self.graph['y1'].eval())
-
-            inference_update = self.run(self.graph['inference_update'], feed_dict=feed_dict)
-            print("after inference")
-            #print("iter %s" % iter)
-            #print(identity)
-            #print(inference_grad)
-            print(inference_update)
-            for i in range(ITERS):
-                feed_dict = {self.graph['x']: img}
-                inference_update = self.run(self.graph['inference_update'], feed_dict=feed_dict)
-                print(inference_update)
-
-            yield img, img_gt, img_gt
+            inference_update = infer(self.sess, self.graph, img, black_batch)
+            yield img, inference_update, img_gt
 
     def random(self):
         theta = 0.05
@@ -88,13 +79,9 @@ class DataGenerator(object):
             yield img, inference_update, img_gt
 
     def run(self, fetches, feed_dict=None):
-        self.session.run(fetches, feed_dict)
+        return self.sess.run(fetches, feed_dict)
 
-def randomMask(shape):
-    rand_mask =  np.random.rand(*shape)
-    dims = len(shape)
-    rand_mask[:, :, :, 1] = 1.0 - rand_mask[:, :, :, 0]
-    return rand_mask
+
 
 
 if __name__=='__main__':
