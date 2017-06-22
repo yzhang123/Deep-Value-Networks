@@ -1,9 +1,13 @@
 import numpy as np
 import random
 from os.path import join, dirname, abspath
+import logging
+
+
 from dvn.src.util.loss import _oracle_score_cpu
-from dvn.src.util.data import randomMask, blackMask
+from dvn.src.util.data import randomMask, blackMask, sampleExponential
 from dvn.src.util.model import inference as infer, adversarial as adverse
+from dvn.src.util.data import generate_similar_image
 
 
 module_path = abspath(__file__)
@@ -17,7 +21,7 @@ class DataGenerator(object):
         self.sess = sess
         self.graph = graph
         self.data = data # (img, img_gt)
-        self.generators = [self.gt, self.inference, self.random, self.adversarial]
+        self.generators = [self.gt, self.inference, self.sampling, self.adversarial]
         #self.generators = [self.gt, self.inference, self.random]
 
     def generate(self):
@@ -25,12 +29,12 @@ class DataGenerator(object):
         while True:
             yield next(random.choice(functions))
         #return self.random()
-        #return self.adversarial()
+        #return self.sampling()
 
     def gt(self):
         for img, img_gt in self.data:
 
-            print("gt")
+            logging.info("gt")
             yield img, img_gt, img_gt
 
     def black(self):
@@ -44,7 +48,7 @@ class DataGenerator(object):
         theta = 0.05
         for img, img_gt in self.data:
 
-            print("random")
+            logging.info("random")
             while True:
                 shape = (1, self.data.size[0], self.data.size[1], self.data.num_classes)
                 random_batch = randomMask(shape)
@@ -58,12 +62,22 @@ class DataGenerator(object):
                 # else:
                 #     print('fail')
 
+    def sampling(self):
+        teta = 0.5#0.05
+        for img, img_gt in self.data:
+            logging.info("sampling")
+            diff_iou = sampleExponential(teta, 1.0)
+            logging.info("iou diff %s " % (diff_iou))
+            new_mask = generate_similar_image(img_gt, 1-diff_iou)
+            yield img, new_mask, img_gt
+
+
     def inference(self):
         shape = (1, self.data.size[0], self.data.size[1], self.data.num_classes)
         black_batch = blackMask(shape)
 
         for img, img_gt in self.data:
-            print("inference")
+            logging.info("inference")
             inference_update = infer(self.sess, self.graph, img, black_batch)
             yield img, inference_update, img_gt
 
@@ -72,7 +86,7 @@ class DataGenerator(object):
         black_batch = blackMask(shape)
 
         for img, img_gt in self.data:
-            print("adversarial")
+            logging.info("adversarial")
             adversarial_update = adverse(self.sess, self.graph, img, black_batch)
             yield img, adversarial_update, img_gt
 

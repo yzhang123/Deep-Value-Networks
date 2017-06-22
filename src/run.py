@@ -14,6 +14,7 @@ import sys
 from os.path import join
 import argparse
 from scipy.misc import imsave
+import logging
 
 from understand_tensorflow.src.deeplearning import save_model
 #from dkfz.train import result_sample_mapping
@@ -21,7 +22,7 @@ from model.dvn import DvnNet
 from dvn.src.data.data_set import DataSet
 from dvn.src.data.generate_data import DataGenerator
 from dvn.src.util.data import pred_to_label, label_to_colorimg, blackMask, result_sample_mapping
-from dvn.src.util.io import write_image
+from dvn.src.util.input_output import write_image
 from dvn.src.util.model import inference as infer
 
 
@@ -69,7 +70,7 @@ def train(graph, data):
             # print(inference_grad[0])
             # print('inference_update')
             # print(inference_update)
-            print("iteration %s: loss = %s" % (iter, loss[0]))
+            logging.info("iteration %s: loss = %s" % (iter, loss[0]))
 
             iter += 1
             #save model
@@ -99,6 +100,7 @@ def test(graph, modelpath, data):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--train', action='store_true')
+    parser.add_argument('--loglevel', default='info')
     args = parser.parse_args()
     return args
 
@@ -108,11 +110,17 @@ if __name__== "__main__":
 
     args = parse_args()
 
+    numeric_level = getattr(logging, args.loglevel.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: %s' % args.loglevel)
+    #logging.basicConfig(filename='log', format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
+    logging.basicConfig(filename='log', format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
+
     img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb")
     test_img_path = join(dir_path, "../", "data/weizmann_horse_db/gray")
     img_gt_path = join(dir_path, "../", "data/weizmann_horse_db/figure_ground")
-    print("img_dir %s" % img_path)
-    print("img_gt_dir %s" % img_gt_path)
+    logging.info("img_dir %s" % img_path)
+    logging.info("img_gt_dir %s" % img_gt_path)
 
     classes = ['__background__', 'horse']
 

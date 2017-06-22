@@ -2,6 +2,11 @@ import os
 from os import listdir
 from os.path import isfile, join
 import numpy as np
+import random
+import logging
+
+from dvn.src.util.loss import _oracle_score_cpu
+
 
 def randomMask(shape):
     rand_mask =  np.random.rand(*shape)
@@ -88,3 +93,62 @@ def result_sample_mapping(gt_labels, pred_labels):
     mapped_pred[false_negatives] = np.array([0, 0, 1])  # blue
 
     return mapped_pred
+
+def generate_similar_image(img, iou):
+    """
+    returns generated image with an IoU difference of diff_iou to img
+    :param img: image with only zero and 1s. last dimension sums up up to 1.
+    :param diff_iou:
+    :return:
+    """
+
+    assert len(img.shape) == 4
+    mask = np.copy(img)
+    batch_size, height, width, channels = img.shape
+    mmin = np.ones([batch_size, channels])
+    mmax = np.ones([batch_size, channels])
+
+    logging.debug("target iou %s" % iou)
+    # only change background layer
+    for i in range(batch_size):
+        mask_iou = 1.0
+        while (mask_iou > iou):
+            logging.debug("batch i=%s, current_iou %s" %(i, mask_iou))
+            while True:
+                rand = np.random.randint(height * width)
+                x = rand // height
+                y = rand - x * width
+                if mask[i][x][y][0] == 0. or mask[i][x][y][0] == 1.:
+                    logging.debug("found pixel")
+                    break
+                else:
+                    logging.debug("mask[%s][%s][%s][0] = %s" %(i, x, y, mask[i][x][y][0]))
+            diff_pixel_value = sampleExponential(1., 1.0)
+            if mask[i][x][y][0] == 0.:
+                mask[i][x][y][0] += diff_pixel_value
+            else:
+                mask[i][x][y][0] -= diff_pixel_value
+
+                logging.debug("new mask[%s][%s][%s][0] = %s" %(i, x, y, mask[i][x][y][0]))
+            mask[i][x][y][1] = 1-mask[i][x][y][0]
+            mask_iou = _oracle_score_cpu(mask[i], img[i])
+        logging.debug("current done")
+        logging.info(mask)
+    return mask
+
+def sampleExponential(beta, maxVal):
+    """
+    returns sample drawn from exponential distribution 1/beta * np.exp(-x/beta)
+    in the range [0, maxVal]
+    :param beta:
+    :param maxVal:
+    :return:
+    """
+    while True:
+        rand = np.random.exponential(beta)
+        if rand <= maxVal:
+            return rand
+
+#
+# for i in range(10):
+#     print(sampleExponential(1., 1.0))
