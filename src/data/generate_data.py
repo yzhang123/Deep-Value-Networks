@@ -63,11 +63,11 @@ class DataGenerator(object):
                 #     print('fail')
 
     def sampling(self):
-        teta = 0.5#0.05
+        teta = 0.05
         for img, img_gt in self.data:
             logging.info("sampling")
             diff_iou = sampleExponential(teta, 1.0)
-            logging.info("iou diff %s " % (diff_iou))
+            logging.info("iou diff %s " % diff_iou)
             new_mask = generate_similar_image(img_gt, 1-diff_iou)
             yield img, new_mask, img_gt
 

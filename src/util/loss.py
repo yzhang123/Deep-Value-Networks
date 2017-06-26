@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+import logging
 
 def _oracle_score(y, y_gt):
     """
@@ -34,3 +35,21 @@ def _oracle_score_cpu(y, y_gt):
         return np.mean(y_divide)
     else:
         raise Exception("wrong input dimension %s" % y.shape)
+
+def calc_accuracy(img_reference, img_pred):
+    ref_labels = np.argmax(img_reference, axis=-1)
+    pred_labels = np.argmax(img_pred, axis=-1)
+    logging.debug("gt: %s" % ref_labels)
+    logging.debug("pred: %s" % pred_labels)
+    correct = (pred_labels == ref_labels)
+    acc = np.mean(correct)
+    return acc
+
+def calc_recall(img_reference, img_pred):
+    ref_labels = np.argmax(img_reference, axis=-1)
+    pred_labels = np.argmax(img_pred, axis=-1)
+    logging.debug("gt: %s" % ref_labels)
+    logging.debug("pred: %s" % pred_labels)
+    true_positive = np.logical_and((pred_labels == ref_labels), ref_labels == 1)
+    acc = np.sum(true_positive) *1.0 /np.sum(ref_labels == 1)
+    return acc

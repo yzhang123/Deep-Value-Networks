@@ -113,7 +113,9 @@ def generate_similar_image(img, iou):
     for i in range(batch_size):
         mask_iou = 1.0
         while (mask_iou > iou):
+            cancel = False
             logging.debug("batch i=%s, current_iou %s" %(i, mask_iou))
+            repeat = 50
             while True:
                 rand = np.random.randint(height * width)
                 x = rand // height
@@ -123,7 +125,14 @@ def generate_similar_image(img, iou):
                     break
                 else:
                     logging.debug("mask[%s][%s][%s][0] = %s" %(i, x, y, mask[i][x][y][0]))
-            diff_pixel_value = sampleExponential(1., 1.0)
+                    repeat -= 1
+                    logging.debug("repeat=%s" %repeat)
+                    if repeat == 0:
+                        cancel = True
+                        break
+            if cancel:
+                break
+            diff_pixel_value = sampleExponential(0.05, 1.0)
             if mask[i][x][y][0] == 0.:
                 mask[i][x][y][0] += diff_pixel_value
             else:

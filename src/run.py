@@ -18,12 +18,13 @@ import logging
 
 from understand_tensorflow.src.deeplearning import save_model
 #from dkfz.train import result_sample_mapping
-from model.dvn import DvnNet
+from dvn.src.model.dvn import DvnNet
 from dvn.src.data.data_set import DataSet
 from dvn.src.data.generate_data import DataGenerator
 from dvn.src.util.data import pred_to_label, label_to_colorimg, blackMask, result_sample_mapping
 from dvn.src.util.input_output import write_image
 from dvn.src.util.model import inference as infer
+from dvn.src.util.loss import calc_accuracy, calc_recall
 
 
 
@@ -84,14 +85,19 @@ def test(graph, modelpath, data):
     with tf.Session() as sess:
 
         tf.global_variables_initializer().run()
-        saver = tf.train.import_meta_graph(modelpath + '.meta')
+        #saver = tf.train.import_meta_graph(modelpath + '.meta')
         #saver.restore(sess, tf.train.latest_checkpoint(os.path.dirname(modelpath)))
+        saver = tf.train.Saver()
         saver.restore(sess, modelpath)
 
         generator = DataGenerator(sess, graph, data)
         iter = 0
         for img, mask, img_gt in generator.black():
             inference_update = infer(sess, graph, img, mask)
+            # acc = calc_accuracy(img_gt, inference_update)
+            # logging.info("it i = %s, acc = %s" %(iter, acc))
+            recall = calc_recall(img_gt, inference_update)
+            logging.info("it i = %s, recall = %s" %(iter, recall))
             #labels = pred_to_label(inference_update)
             mapp_pred = result_sample_mapping(img_gt, inference_update)
             write_image(mapp_pred, -1, data.index_list[iter])
@@ -114,7 +120,7 @@ if __name__== "__main__":
     if not isinstance(numeric_level, int):
         raise ValueError('Invalid log level: %s' % args.loglevel)
     #logging.basicConfig(filename='log', format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
-    logging.basicConfig(filename='log', format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
+    logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
 
     img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb")
     test_img_path = join(dir_path, "../", "data/weizmann_horse_db/gray")
