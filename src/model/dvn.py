@@ -38,20 +38,27 @@ class DvnNet(object):
         with tf.variable_scope(name):
             W = self._weight_variable(weight_shape, name=name)
             b = self._bias_variable(bias_shape, name=name)
-            acti = activation_fn(tf.matmul(bottom, W) + b, name=name + '_relu')
+            preactivation = tf.matmul(bottom, W) + b
+            tf.summary.histogram('pre_activations', preactivation)
+            acti = activation_fn(preactivation, name=name + '_relu')
+            tf.summary.histogram('activations', acti)
             if dropout:
                 acti = tf.nn.dropout(acti, self._keep_prob, name=name + '_dropout')
             return acti
 
     def _weight_variable(self, shape, initializer=None, name=None):
-      if not initializer:
-        initializer = tf.orthogonal_initializer(gain=1.0, seed=None)
-      return tf.get_variable(name + '_weight', shape, initializer=initializer, collections=['variables'])
+        if not initializer:
+            initializer = tf.orthogonal_initializer(gain=1.0, seed=None)
+        var = tf.get_variable(name + '_weight', shape, initializer=initializer, collections=['variables'])
+        self.variable_summaries(var)
+        return var
 
     def _bias_variable(self, shape, initializer=None, name=None):
         if not initializer:
             initializer = tf.constant_initializer(0.001)
-        return tf.get_variable(name + '_bias', shape, initializer=initializer, collections=['variables'])
+        var = tf.get_variable(name + '_bias', shape, initializer=initializer, collections=['variables'])
+        self.variable_summaries(var)
+        return var
     #
     # def _conv2d(self, x, W, stride=1):
     #   return tf.nn.conv2d(x, W, strides=[1, stride, stride, 1], padding='SAME')
@@ -72,9 +79,25 @@ class DvnNet(object):
         :return:
         """
         sim_score = _oracle_score(y, y_gt) # shape=[batchsize x 1]
+        mean_sim_score = tf.reduce_mean(sim_score, 0)
+        tf.summary.scalar('sim_score', tf.squeeze(mean_sim_score))
         loss_CE = -sim_score * tf.log(score) - (1-sim_score) * tf.log(1-score)
-        return tf.reduce_mean(loss_CE, 0), sim_score
+        mean_loss_CE = tf.reduce_mean(loss_CE, 0)
+        tf.summary.scalar('cross_entropy', tf.squeeze(mean_loss_CE))
+        return mean_loss_CE, sim_score
 
+    def variable_summaries(self, var):
+        """Attach a lot of summaries to a Tensor (for TensorBoard visualization).
+        """
+        with tf.name_scope('summaries'):
+            mean = tf.reduce_mean(var)
+            tf.summary.scalar('mean', mean)
+            with tf.name_scope('stddev'):
+                stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+            tf.summary.scalar('stddev', stddev)
+            tf.summary.scalar('max', tf.reduce_max(var))
+            tf.summary.scalar('min', tf.reduce_min(var))
+            tf.summary.histogram('histogram', var)
 
     def build_network(self, train=True):
 
@@ -122,7 +145,6 @@ class DvnNet(object):
 
         with tf.variable_scope('loss'):
             self._graph['loss'], self._graph['sim_score'] = self._create_loss(self._graph['fc3'], self._graph['y'], self._graph['y_gt'])
-
         with tf.variable_scope('train'):
             optimizer = tf.train.AdamOptimizer(self._learning_rate)
             self._graph['train_gradients'] = optimizer.compute_gradients(self._graph['loss'])
@@ -146,6 +168,7 @@ class DvnNet(object):
             self._graph['adverse_update'] = self._graph['y1'].assign(
                 tf.clip_by_value(tf.add(self._graph['identity'], self._graph['inference_grad'][0]), 0., 1.))
 
+        self._graph['merged_summary'] = tf.summary.merge_all()
 
         return self._graph
 

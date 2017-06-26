@@ -32,7 +32,7 @@ from dvn.src.util.loss import calc_accuracy, calc_recall
 module_path = os.path.abspath(__file__)
 dir_path = os.path.dirname(module_path)  # store dir_path for later use
 root_path = join(dir_path, "../")
-
+log_dir = join(root_path, "logs")
 
 # Number of training iterations
 ITERS_TRAIN = 60
@@ -56,13 +56,14 @@ def train(graph, data):
             saver.restore(sess, ckpt.model_checkpoint_path)
         iter = initial_step = graph['global_step'].eval()
 
+        train_writer = tf.summary.FileWriter(log_dir + '/train', sess.graph)
         generator = DataGenerator(sess, graph, data)
         for img, mask, img_gt in generator.generate():
             # print(iter)
 
             feed_dict = {graph['x']: img, graph['y_gt']: img_gt, graph['y']: mask}
-            _, loss = sess.run([graph['train_optimizer'], graph['loss']], feed_dict=feed_dict)
-
+            _, loss, summary = sess.run([graph['train_optimizer'], graph['loss'], graph['merged_summary']], feed_dict=feed_dict)
+            train_writer.add_summary(summary, iter)
             # feed_dict = {graph['x']: img, graph['y']: mask}
             # identity, inference_update, inference_grad = sess.run([graph['identity'], graph['inference_update'],
             #                                                        graph['inference_grad']], feed_dict=feed_dict)
@@ -79,7 +80,7 @@ def train(graph, data):
                 save_model(sess, SAVE_PATH, 'model', global_step=iter)
             if iter >= initial_step + ITERS_TRAIN:
                 break
-
+        train_writer.close()
 
 def test(graph, modelpath, data):
     with tf.Session() as sess:
