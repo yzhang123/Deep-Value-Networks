@@ -21,13 +21,13 @@ class DataGenerator(object):
         self.sess = sess
         self.graph = graph
         self.data = data # (img, img_gt)
-        self.generators = [self.gt, self.inference, self.sampling, self.adversarial]
+        #self.generators = [self.gt, self.inference, self.sampling, self.adversarial]
         #self.generators = [self.gt, self.inference, self.random]
+        self.generators = [self.generate_examples(train=True)]
 
     def generate(self):
-        functions = map(lambda x: x(), self.generators)
         while True:
-            yield next(random.choice(functions))
+            yield next(random.choice(self.generators))
         #return self.random()
         #return self.sampling()
 
@@ -72,30 +72,30 @@ class DataGenerator(object):
             yield img, new_mask, img_gt
 
 
-    def inference(self):
-        shape = (1, self.data.size[0], self.data.size[1], self.data.num_classes)
-        black_batch = blackMask(shape)
+    def generate_examples(self, train=True):
+        shape = (self.data.batch_size, self.data.size[0], self.data.size[1], self.data.num_classes)
 
         for img, img_gt in self.data:
-            logging.info("inference")
-            inference_update = infer(self.sess, self.graph, img, black_batch)
-            yield img, inference_update, img_gt
+            init_mask = self.get_initialization(shape)
+            if train and np.random.rand() >= 0.5:
+                logging.info("adverse")
+                gt_indices = np.random.rand(img_gt.shape[0]) > 0.5
+                init_mask[gt_indices] = img_gt[gt_indices]
+                pred_mask = adverse(self.sess, self.graph, img, img_gt, init_mask)
+            else:
+                logging.info("inference")
+                pred_mask = infer(self.sess, self.graph, img, init_mask)
 
-    def adversarial(self):
-        shape = (1, self.data.size[0], self.data.size[1], self.data.num_classes)
-        black_batch = blackMask(shape)
+            yield img, pred_mask, img_gt
 
-        for img, img_gt in self.data:
-            logging.info("adversarial")
-            adversarial_update = adverse(self.sess, self.graph, img, black_batch)
-            yield img, adversarial_update, img_gt
-
-
+    def get_initialization(self, shape):
+        black_batch = np.zeros(shape, dtype=np.float32)
+        return black_batch
 
 if __name__=='__main__':
-    img_path = join(dir_path, "../../", "data/weizmann_horse_db/rgb")
-    test_img_path = join(dir_path, "../../", "data/weizmann_horse_db/gray")
-    img_gt_path = join(dir_path, "../../", "data/weizmann_horse_db/figure_ground")
+    img_path = join(dir_path, "../../", "data/weizmann_horse_db/rgb_1")
+    test_img_path = join(dir_path, "../../", "data/weizmann_horse_db/gray_1")
+    img_gt_path = join(dir_path, "../../", "data/weizmann_horse_db/figure_ground_1")
     print("img_dir %s" % img_path)
     print("img_gt_dir %s" % img_gt_path)
 

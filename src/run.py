@@ -32,15 +32,15 @@ root_path = join(dir_path, "../")
 log_dir = join(root_path, "logs")
 
 # Number of training iterations
-ITERS_TRAIN = 60
+ITERS_TRAIN = 1000
 # Number of inference iterations
 ITERS_TEST = 30
 # Number of iterations after a snapshot of the model is saved
-ITERS_PER_SAVE = 50
+ITERS_PER_SAVE = 100
 # absolute path where model snapshots are saved
 SAVE_PATH = join(root_path, 'checkpoints/')
 # number of batch size of incoming data
-BATCH_SIZE = 1
+BATCH_SIZE = 20
 
 
 
@@ -59,7 +59,7 @@ def train(graph, data):
             # print(iter)
 
             feed_dict = {graph['x']: img, graph['y_gt']: img_gt, graph['y']: mask}
-            _, loss, summary = sess.run([graph['train_optimizer'], graph['loss'], graph['merged_summary']], feed_dict=feed_dict)
+            _, loss, sim_score, summary = sess.run([graph['train_optimizer'], graph['loss'], graph['sim_score'], graph['merged_summary']], feed_dict=feed_dict)
             train_writer.add_summary(summary, iter)
             # feed_dict = {graph['x']: img, graph['y']: mask}
             # identity, inference_update, inference_grad = sess.run([graph['identity'], graph['inference_update'],
@@ -69,7 +69,7 @@ def train(graph, data):
             # print(inference_grad[0])
             # print('inference_update')
             # print(inference_update)
-            logging.info("iteration %s: loss = %s" % (iter, loss[0]))
+            logging.info("iteration %s: loss = %s, sim_score = %s" % (iter, loss, sim_score))
 
             iter += 1
             #save model
@@ -117,8 +117,8 @@ if __name__== "__main__":
     numeric_level = getattr(logging, args.loglevel.upper(), None)
     if not isinstance(numeric_level, int):
         raise ValueError('Invalid log level: %s' % args.loglevel)
-    #logging.basicConfig(filename='log', format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
-    logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
+    logging.basicConfig(filename='log', format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
+    #logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
 
     img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb")
     test_img_path = join(dir_path, "../", "data/weizmann_horse_db/gray")
@@ -138,7 +138,7 @@ if __name__== "__main__":
     else:
         graph = net.build_network(train=False)
         test_data = DataSet(classes, test_img_path, img_gt_path, batch_size=BATCH_SIZE, train=False)
-        modelpath = '/home/yang/projects/dvn/checkpoints/model-50'
+        modelpath = '/home/yang/projects/dvn/checkpoints/model-100'
         test(graph, modelpath, test_data)
 
 
