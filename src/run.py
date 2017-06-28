@@ -5,9 +5,6 @@ from __future__ import (absolute_import, division,
 from builtins import *
 
 import tensorflow as tf
-import tensorflow.contrib.slim as slim
-from tensorflow.contrib.slim import losses
-from tensorflow.contrib.slim import arg_scope
 import numpy as np
 import os
 import sys
