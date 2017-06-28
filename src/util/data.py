@@ -20,8 +20,8 @@ def blackMask(shape):
     return black_batch
 def greyMask(shape):
     batch = np.zeros(shape, dtype=np.float32)
-    batch[:, :, :, 0] = 0.5
-    batch[:, :, :, 1] = 0.5
+    batch[:, :, :, 0] = np.random.rand()
+    batch[:, :, :, 1] = 1 - batch[:, :, :, 0]
     return batch
 
 def pred_to_label(seg_masks):

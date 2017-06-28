@@ -31,8 +31,12 @@ class DvnNet(object):
             weight = self._weight_variable(weights_shape, name=name)
             bias = self._bias_variable(filter_depth, name=name)
             conv = tf.nn.conv2d(bottom, weight, strides=strides, padding=padding)
-            norm = layer_norm(conv)
-            relu = tf.nn.relu(norm + bias)
+
+            # norm = layer_norm(conv)
+            # relu = tf.nn.relu(norm + bias)
+
+
+            relu = tf.nn.relu(conv + bias)
 
             return relu
 
@@ -41,9 +45,11 @@ class DvnNet(object):
             W = self._weight_variable(weight_shape, name=name)
             b = self._bias_variable(bias_shape, name=name)
             preactivation = tf.matmul(bottom, W)
-            tf.summary.histogram('pre_activations', preactivation)
+            tf.summary.histogram('pre_norm_activations', preactivation)
             norm = layer_norm(preactivation)
             acti = activation_fn(norm + b, name=name + '_relu')
+
+            # acti = activation_fn(preactivation + b, name=name + '_relu')
             tf.summary.histogram('activations', acti)
             if dropout:
                 acti = tf.nn.dropout(acti, self._keep_prob, name=name + '_dropout')
@@ -62,16 +68,6 @@ class DvnNet(object):
         var = tf.get_variable(name + '_bias', shape, initializer=initializer, collections=['variables'])
         self.variable_summaries(var, name='bias')
         return var
-    #
-    # def _conv2d(self, x, W, stride=1):
-    #   return tf.nn.conv2d(x, W, strides=[1, stride, stride, 1], padding='SAME')
-
-    # def _relu(self, conv, b):
-    #     return tf.nn.relu(conv+b)
-
-    # def _max_pool(self, x, size=2, stride=2):
-    #   return tf.nn.max_pool(x, ksize=[1, size, size, 1],
-    #                         strides=[1, stride, stride, 1], padding='SAME')
 
     def _create_loss(self, score, y, y_gt):
         """
@@ -111,11 +107,9 @@ class DvnNet(object):
         with tf.variable_scope('input'):
 
             self._graph['x'] = tf.placeholder(tf.float32, shape=[None, None, None, 3], name='x-input') # 3+k between 0 and 1
-
+            tf.summary.image("x", self._graph['x'])
             self._graph['y_gt'] = tf.placeholder(tf.float32, shape=[None, None, None, self._num_classes], name='y-gt') # ground truth segmentation
-
             self._graph['y'] = tf.placeholder(tf.float32, shape=[None, None, None, self._num_classes], name='y')
-
         with tf.variable_scope('input-concat'):
             self.x_concat = tf.concat([self._graph['x'], self._graph['y']], 3, name='concat')
 

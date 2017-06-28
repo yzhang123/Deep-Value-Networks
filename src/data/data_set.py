@@ -92,7 +92,7 @@ class DataSet(object):
                     img = img.resize(self.size, resample=Image.BILINEAR)
                 if img.mode != "RGB":
                     img = img.convert("RGB")
-                img = np.asarray(img, dtype=np.uint8) - self.mean_pixel
+                img = np.asarray(img, dtype=np.uint8)# - self.mean_pixel
                 img = np.asarray(img, dtype=np.float32) / 255.
 
                 if self.gt_dir:
