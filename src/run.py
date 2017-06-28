@@ -36,11 +36,11 @@ ITERS_TRAIN = 1000
 # Number of inference iterations
 ITERS_TEST = 30
 # Number of iterations after a snapshot of the model is saved
-ITERS_PER_SAVE = 100
+ITERS_PER_SAVE = 50
 # absolute path where model snapshots are saved
 SAVE_PATH = join(root_path, 'checkpoints/')
 # number of batch size of incoming data
-BATCH_SIZE = 20
+BATCH_SIZE = 1
 
 
 
@@ -88,16 +88,15 @@ def test(graph, modelpath, data):
         saver = tf.train.Saver()
         saver.restore(sess, modelpath)
 
-        generator = DataGenerator(sess, graph, data)
+        generator = DataGenerator(sess, graph, data, train=False)
         iter = 0
-        for img, mask, img_gt in generator.black():
-            inference_update = infer(sess, graph, img, mask)
+        for img, pred, img_gt in generator.generate():
             # acc = calc_accuracy(img_gt, inference_update)
             # logging.info("it i = %s, acc = %s" %(iter, acc))
-            recall = calc_recall(img_gt, inference_update)
+            recall = calc_recall(img_gt, pred)
             logging.info("it i = %s, recall = %s" %(iter, recall))
             #labels = pred_to_label(inference_update)
-            mapp_pred = result_sample_mapping(img_gt, inference_update)
+            mapp_pred = result_sample_mapping(img_gt, pred)
             write_image(mapp_pred, -1, data.index_list[iter])
             iter += 1
 
@@ -117,18 +116,24 @@ if __name__== "__main__":
     numeric_level = getattr(logging, args.loglevel.upper(), None)
     if not isinstance(numeric_level, int):
         raise ValueError('Invalid log level: %s' % args.loglevel)
-    logging.basicConfig(filename='log', format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
+    logging.basicConfig(filename=dir_path + '/log', format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
     #logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
 
-    img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb")
-    test_img_path = join(dir_path, "../", "data/weizmann_horse_db/gray")
-    img_gt_path = join(dir_path, "../", "data/weizmann_horse_db/figure_ground")
+    img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb_1")
+    test_img_path = join(dir_path, "../", "data/weizmann_horse_db/gray_1")
+    img_gt_path = join(dir_path, "../", "data/weizmann_horse_db/figure_ground_1")
     logging.info("img_dir %s" % img_path)
     logging.info("img_gt_dir %s" % img_gt_path)
 
     classes = ['__background__', 'horse']
 
-    net = DvnNet(classes=classes, batch_size = BATCH_SIZE)
+    net_params = {
+        'classes': classes,
+        'batch_size': BATCH_SIZE,
+        'lr': 0.01
+    }
+    net = DvnNet(**net_params)
+    #net = DvnNet(classes=classes, batch_size=BATCH_SIZE, lr=0.0001)
 
 
     if args.train:
@@ -137,8 +142,8 @@ if __name__== "__main__":
         train(graph, train_data)
     else:
         graph = net.build_network(train=False)
-        test_data = DataSet(classes, test_img_path, img_gt_path, batch_size=BATCH_SIZE, train=False)
-        modelpath = '/home/yang/projects/dvn/checkpoints/model-100'
+        test_data = DataSet(classes, test_img_path, img_gt_path, batch_size=1, train=False)
+        modelpath = '/home/yang/projects/dvn/checkpoints/model-300'
         test(graph, modelpath, test_data)
 
 

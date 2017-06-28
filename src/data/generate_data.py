@@ -5,9 +5,9 @@ import logging
 
 
 from dvn.src.util.loss import _oracle_score_cpu
-from dvn.src.util.data import randomMask, blackMask, sampleExponential
+from dvn.src.util.data import randomMask, blackMask, sampleExponential, greyMask
 from dvn.src.util.model import inference as infer, adversarial as adverse
-from dvn.src.util.data import generate_similar_image
+from dvn.src.util.data import generate_random_sample
 
 
 module_path = abspath(__file__)
@@ -37,60 +37,35 @@ class DataGenerator(object):
             logging.info("gt")
             yield img, img_gt, img_gt
 
-    def black(self):
-        shape = (1, self.data.size[0], self.data.size[1], self.data.num_classes)
-        black_batch = blackMask(shape)
-        for img, img_gt in self.data:
-            yield img, black_batch, img_gt
 
-
-    def random(self):
-        theta = 0.05
-        for img, img_gt in self.data:
-
-            logging.info("random")
-            while True:
-                shape = (1, self.data.size[0], self.data.size[1], self.data.num_classes)
-                random_batch = randomMask(shape)
-                sim = _oracle_score_cpu(random_batch, img_gt)
-                norm_factor = 1./ (np.exp(theta) - 1)
-                prob = norm_factor * np.exp(theta * sim[0]) - norm_factor
-                rand = np.random.rand()
-                if rand < prob:
-                    yield img, random_batch, img_gt
-                    break
-                # else:
-                #     print('fail')
-
-    def sampling(self):
-        teta = 0.05
-        for img, img_gt in self.data:
-            logging.info("sampling")
-            diff_iou = sampleExponential(teta, 1.0)
-            logging.info("iou diff %s " % diff_iou)
-            new_mask = generate_similar_image(img_gt, 1-diff_iou)
-            yield img, new_mask, img_gt
-
-
-    def generate_examples(self, train=True):
+    def generate_examples(self, train=False):
         shape = (self.data.batch_size, self.data.size[0], self.data.size[1], self.data.num_classes)
 
         for img, img_gt in self.data:
             init_mask = self.get_initialization(shape)
-            if train and np.random.rand() >= 0.5:
-                logging.info("adverse")
-                gt_indices = np.random.rand(img_gt.shape[0]) > 0.5
-                init_mask[gt_indices] = img_gt[gt_indices]
-                pred_mask = adverse(self.sess, self.graph, img, img_gt, init_mask)
-            else:
-                logging.info("inference")
-                pred_mask = infer(self.sess, self.graph, img, init_mask)
-
-            yield img, pred_mask, img_gt
+            # rand = np.random.rand()
+            # if train:
+            #     if rand > 0.55:
+            #         logging.info("adverse")
+            #         gt_indices = np.random.rand(img_gt.shape[0]) > 0.5
+            #         init_mask[gt_indices] = img_gt[gt_indices]
+            #         pred_mask = adverse(self.sess, self.graph, img, img_gt, init_mask)
+            #     elif rand > 0.15:
+            #         logging.info("inference")
+            #         pred_mask = infer(self.sess, self.graph, img, init_mask)
+            #     else:
+            #         logging.info("rand")
+            #         teta = 0.05
+            #         pred_mask = generate_random_sample(shape, teta, img_gt)
+            # else:
+            #     pred_mask = infer(self.sess, self.graph, img, init_mask)
+            # yield img, pred_mask, img_gt
+            yield img, init_mask, img_gt
 
     def get_initialization(self, shape):
-        black_batch = np.zeros(shape, dtype=np.float32)
+        black_batch = greyMask(shape)
         return black_batch
+
 
 if __name__=='__main__':
     img_path = join(dir_path, "../../", "data/weizmann_horse_db/rgb_1")

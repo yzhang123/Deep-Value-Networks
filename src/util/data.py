@@ -18,7 +18,11 @@ def blackMask(shape):
     black_batch = np.zeros(shape, dtype=np.float32)
     black_batch[:, :, :, 0] = 1.
     return black_batch
-
+def greyMask(shape):
+    batch = np.zeros(shape, dtype=np.float32)
+    batch[:, :, :, 0] = 0.5
+    batch[:, :, :, 1] = 0.5
+    return batch
 
 def pred_to_label(seg_masks):
     pred_labels = np.argmax(seg_masks, -1)
@@ -142,7 +146,7 @@ def generate_similar_image(img, iou):
             mask[i][x][y][1] = 1-mask[i][x][y][0]
             mask_iou = _oracle_score_cpu(mask[i], img[i])
         logging.debug("current done")
-        logging.info(mask)
+        logging.info("generated similar mask %s " %mask)
     return mask
 
 def sampleExponential(beta, maxVal):
@@ -158,6 +162,12 @@ def sampleExponential(beta, maxVal):
         if rand <= maxVal:
             return rand
 
+
+def generate_random_sample(shape, teta, img_gt):
+    diff_iou = sampleExponential(teta, 1.0)
+    logging.debug("iou diff %s " % diff_iou)
+    new_mask = generate_similar_image(img_gt, 1 - diff_iou)
+    return new_mask
 #
 # for i in range(10):
 #     print(sampleExponential(1., 1.0))
