@@ -5,7 +5,7 @@ import logging
 
 
 from dvn.src.util.loss import _oracle_score_cpu
-from dvn.src.util.data import randomMask, blackMask, sampleExponential, greyMask
+from dvn.src.util.data import randomMask, blackMask, sampleExponential, zeroMask
 from dvn.src.util.model import inference as infer, adversarial as adverse
 from dvn.src.util.data import generate_random_sample
 
@@ -21,15 +21,11 @@ class DataGenerator(object):
         self.sess = sess
         self.graph = graph
         self.data = data # (img, img_gt)
-        #self.generators = [self.gt, self.inference, self.sampling, self.adversarial]
-        #self.generators = [self.gt, self.inference, self.random]
         self.generators = [self.generate_examples(train=True)]
 
     def generate(self):
         while True:
             yield next(random.choice(self.generators))
-        #return self.random()
-        #return self.sampling()
 
     def gt(self):
         for img, img_gt in self.data:
@@ -48,8 +44,8 @@ class DataGenerator(object):
                 if rand > 0.55:
                     logging.info("adverse")
                     gt_indices = np.random.rand(img_gt.shape[0]) > 0.5
-                    init_mask[gt_indices] = img_gt[gt_indices]
-                    pred_mask = adverse(self.sess, self.graph, img, img_gt, init_mask)
+                    init_mask[gt_indices] = img_gt[gt_indices].copy()
+                    pred_mask = adverse(self.sess, self.graph, img, init_mask, img_gt)
                 elif rand > 0.15:
                     logging.info("inference")
                     pred_mask = infer(self.sess, self.graph, img, init_mask)
@@ -63,7 +59,7 @@ class DataGenerator(object):
             # yield img, init_mask, img_gt
 
     def get_initialization(self, shape):
-        black_batch = randomMask(shape)
+        black_batch = zeroMask(shape)
         return black_batch
 
 

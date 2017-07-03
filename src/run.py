@@ -40,7 +40,7 @@ ITERS_PER_SAVE = 50
 # absolute path where model snapshots are saved
 SAVE_PATH = join(root_path, 'checkpoints/')
 # number of batch size of incoming data
-BATCH_SIZE = 2
+BATCH_SIZE = 1
 
 
 
@@ -55,10 +55,17 @@ def train(graph, data):
 
         train_writer = tf.summary.FileWriter(log_dir + '/train', sess.graph)
         generator = DataGenerator(sess, graph, data)
+        # x, _, gt = next(generator.gt())
+        # logging.info("image: %s" % x)
+        # logging.info("gt: %s" % gt)
+        # np.save('arrays/x.npy', x)
+        # np.save('arrays/y.npy', gt)
+
         for img, mask, img_gt in generator.generate():
             # print(iter)
 
             feed_dict = {graph['x']: img, graph['y_gt']: img_gt, graph['y']: mask}
+            #feed_dict = {graph['x']: x, graph['y_gt']: gt, graph['y']: mask}
             #_, loss, sim_score, gradient, summary = sess.run([graph['train_optimizer'], graph['loss'], graph['sim_score'], graph['inference_grad'], graph['merged_summary']], feed_dict=feed_dict)
             loss, sim_score, fc3, gradient, summary = sess.run([graph['loss'], graph['sim_score'], graph['fc3'], graph['inference_grad'], graph['merged_summary']], feed_dict=feed_dict)
 
@@ -71,8 +78,10 @@ def train(graph, data):
             # print(inference_grad[0])
             # print('inference_update')
             # print(inference_update)
+            # logging.debug("mask : %s" % mask)
+            #
+            # np.save('arrays/y-%s.npy' % iter, mask)
             logging.info("iteration %s: loss = %s, sim_score = %s, fc3 = %s" % (iter, loss, sim_score, fc3))
-            logging.info("gradient: %s" % gradient)
 
             iter += 1
             #save model
@@ -122,9 +131,9 @@ if __name__== "__main__":
     logging.basicConfig(filename=dir_path + '/log', format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
     #logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
 
-    img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb")
-    test_img_path = join(dir_path, "../", "data/weizmann_horse_db/gray")
-    img_gt_path = join(dir_path, "../", "data/weizmann_horse_db/figure_ground")
+    img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb_1")
+    test_img_path = join(dir_path, "../", "data/weizmann_horse_db/gray_1")
+    img_gt_path = join(dir_path, "../", "data/weizmann_horse_db/figure_ground_1")
     logging.info("img_dir %s" % img_path)
     logging.info("img_gt_dir %s" % img_gt_path)
 
