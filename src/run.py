@@ -33,10 +33,8 @@ log_dir = join(root_path, "logs")
 
 # Number of training iterations
 ITERS_TRAIN = 1000
-# Number of inference iterations
-ITERS_TEST = 50
 # Number of iterations after a snapshot of the model is saved
-ITERS_PER_SAVE = 50
+ITERS_PER_SAVE = 100
 # absolute path where model snapshots are saved
 SAVE_PATH = join(root_path, 'checkpoints/')
 # number of batch size of incoming data
@@ -132,7 +130,7 @@ if __name__== "__main__":
     #logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
 
     img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb_1")
-    test_img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb")
+    test_img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb_1")
     img_gt_path = join(dir_path, "../", "data/weizmann_horse_db/figure_ground_1")
     logging.info("img_dir %s" % img_path)
     logging.info("img_gt_dir %s" % img_gt_path)
