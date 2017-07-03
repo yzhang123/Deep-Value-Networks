@@ -10,7 +10,6 @@ from dvn.src.util.loss import _oracle_score_cpu
 
 def randomMask(shape):
     rand_mask =  np.random.rand(*shape)
-    dims = len(shape)
     rand_mask[:, :, :, 1] = 1.0 - rand_mask[:, :, :, 0]
     return rand_mask
 
@@ -18,6 +17,7 @@ def blackMask(shape):
     black_batch = np.zeros(shape, dtype=np.float32)
     black_batch[:, :, :, 0] = 1.
     return black_batch
+
 def greyMask(shape):
     batch = np.zeros(shape, dtype=np.float32)
     batch[:, :, :, 0] = np.random.rand()

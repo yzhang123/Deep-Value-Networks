@@ -43,27 +43,27 @@ class DataGenerator(object):
 
         for img, img_gt in self.data:
             init_mask = self.get_initialization(shape)
-            # rand = np.random.rand()
-            # if train:
-            #     if rand > 0.55:
-            #         logging.info("adverse")
-            #         gt_indices = np.random.rand(img_gt.shape[0]) > 0.5
-            #         init_mask[gt_indices] = img_gt[gt_indices]
-            #         pred_mask = adverse(self.sess, self.graph, img, img_gt, init_mask)
-            #     elif rand > 0.15:
-            #         logging.info("inference")
-            #         pred_mask = infer(self.sess, self.graph, img, init_mask)
-            #     else:
-            #         logging.info("rand")
-            #         teta = 0.05
-            #         pred_mask = generate_random_sample(shape, teta, img_gt)
-            # else:
-            #     pred_mask = infer(self.sess, self.graph, img, init_mask)
-            # yield img, pred_mask, img_gt
-            yield img, init_mask, img_gt
+            rand = np.random.rand()
+            if train:
+                if rand > 0.55:
+                    logging.info("adverse")
+                    gt_indices = np.random.rand(img_gt.shape[0]) > 0.5
+                    init_mask[gt_indices] = img_gt[gt_indices]
+                    pred_mask = adverse(self.sess, self.graph, img, img_gt, init_mask)
+                elif rand > 0.15:
+                    logging.info("inference")
+                    pred_mask = infer(self.sess, self.graph, img, init_mask)
+                else:
+                    logging.info("rand")
+                    teta = 0.05
+                    pred_mask = generate_random_sample(shape, teta, img_gt)
+            else:
+                pred_mask = infer(self.sess, self.graph, img, init_mask)
+            yield img, pred_mask, img_gt
+            # yield img, init_mask, img_gt
 
     def get_initialization(self, shape):
-        black_batch = greyMask(shape)
+        black_batch = randomMask(shape)
         return black_batch
 
 

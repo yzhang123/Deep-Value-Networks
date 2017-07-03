@@ -23,7 +23,7 @@ class DvnNet(object):
         self._learning_rate = lr
         self._keep_prob = 0.75
 
-    def conv_acti_layer(self, bottom, filter_shape, filter_depth, name, stride, padding='SAME'):
+    def conv_acti_layer(self, bottom, filter_shape, filter_depth, name, stride, padding='SAME', layernorm=False):
         strides = [1, stride, stride, 1]
         with tf.variable_scope(name):
             pre_depth = bottom.get_shape()[3].value
@@ -32,24 +32,25 @@ class DvnNet(object):
             bias = self._bias_variable(filter_depth, name=name)
             conv = tf.nn.conv2d(bottom, weight, strides=strides, padding=padding)
 
-            # norm = layer_norm(conv)
-            # relu = tf.nn.relu(norm + bias)
+            norm = layer_norm(conv)
+            relu = tf.nn.relu(norm + bias)
 
 
-            relu = tf.nn.relu(conv + bias)
+            #relu = tf.nn.relu(conv + bias)
 
             return relu
 
-    def fc_acti_layer(self, bottom, weight_shape, bias_shape, name, activation_fn=tf.nn.relu, dropout=False):
+    def fc_acti_layer(self, bottom, weight_shape, bias_shape, name, activation_fn=tf.nn.relu, dropout=False, layernorm=False):
         with tf.variable_scope(name):
             W = self._weight_variable(weight_shape, name=name)
             b = self._bias_variable(bias_shape, name=name)
             preactivation = tf.matmul(bottom, W)
             tf.summary.histogram('pre_norm_activations', preactivation)
-            norm = layer_norm(preactivation)
-            acti = activation_fn(norm + b, name=name + '_relu')
-
-            # acti = activation_fn(preactivation + b, name=name + '_relu')
+            if layernorm:
+                norm = layer_norm(preactivation)
+                acti = activation_fn(norm + b, name=name + '_relu')
+            else:
+                acti = activation_fn(preactivation + b, name=name + '_relu')
             tf.summary.histogram('activations', acti)
             if dropout:
                 acti = tf.nn.dropout(acti, self._keep_prob, name=name + '_dropout')
@@ -114,15 +115,15 @@ class DvnNet(object):
             self.x_concat = tf.concat([self._graph['x'], self._graph['y']], 3, name='concat')
 
         with tf.variable_scope('conv1'):
-            self._graph['conv1'] = self.conv_acti_layer(self.x_concat, [5,5], 64, "conv1", 1)
+            self._graph['conv1'] = self.conv_acti_layer(self.x_concat, [5,5], 64, "conv1", 1, layernorm=True)
         with tf.variable_scope('conv2'):
-            self._graph['conv2'] = self.conv_acti_layer(self._graph['conv1'], [5,5], 128, "conv2", 2)
+            self._graph['conv2'] = self.conv_acti_layer(self._graph['conv1'], [5,5], 128, "conv2", 2, layernorm=True)
         with tf.variable_scope('conv3'):
-            self._graph['conv3'] = self.conv_acti_layer(self._graph['conv2'], [5,5], 128, "conv3", 2)
+            self._graph['conv3'] = self.conv_acti_layer(self._graph['conv2'], [5,5], 128, "conv3", 2, layernorm=True)
 
         conv3_flat = tf.reshape(self._graph['conv3'], [-1, 6*6*128], name='pre_fc')
-        self._graph['fc1'] = self.fc_acti_layer(conv3_flat, weight_shape=[6 * 6 * 128, 384], bias_shape=[384], name='fc1', dropout=train)
-        self._graph['fc2'] = self.fc_acti_layer(self._graph['fc1'], weight_shape=[384, 192], bias_shape=[192], name='fc2')
+        self._graph['fc1'] = self.fc_acti_layer(conv3_flat, weight_shape=[6 * 6 * 128, 384], bias_shape=[384], name='fc1', dropout=train, layernorm=True)
+        self._graph['fc2'] = self.fc_acti_layer(self._graph['fc1'], weight_shape=[384, 192], bias_shape=[192], name='fc2', layernorm=True)
         self._graph['fc3'] = self.fc_acti_layer(self._graph['fc2'], weight_shape=[192, 1], bias_shape=[1], activation_fn=tf.nn.sigmoid, name='fc3')
 
         with tf.variable_scope('loss'):

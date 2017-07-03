@@ -61,6 +61,7 @@ def train(graph, data):
             feed_dict = {graph['x']: img, graph['y_gt']: img_gt, graph['y']: mask}
             #_, loss, sim_score, gradient, summary = sess.run([graph['train_optimizer'], graph['loss'], graph['sim_score'], graph['inference_grad'], graph['merged_summary']], feed_dict=feed_dict)
             loss, sim_score, fc3, gradient, summary = sess.run([graph['loss'], graph['sim_score'], graph['fc3'], graph['inference_grad'], graph['merged_summary']], feed_dict=feed_dict)
+
             train_writer.add_summary(summary, iter)
             # feed_dict = {graph['x']: img, graph['y']: mask}
             # identity, inference_update, inference_grad = sess.run([graph['identity'], graph['inference_update'],
@@ -72,7 +73,6 @@ def train(graph, data):
             # print(inference_update)
             logging.info("iteration %s: loss = %s, sim_score = %s, fc3 = %s" % (iter, loss, sim_score, fc3))
             logging.info("gradient: %s" % gradient)
-            logging.info("x %s" %img)
 
             iter += 1
             #save model
