@@ -30,9 +30,10 @@ module_path = os.path.abspath(__file__)
 dir_path = os.path.dirname(module_path)  # store dir_path for later use
 root_path = join(dir_path, "../")
 log_dir = join(root_path, "logs")
+model_dir = join(root_path, "model")
 
 # Number of training iterations
-ITERS_TRAIN = 1000
+ITERS_TRAIN = 3000
 # Number of iterations after a snapshot of the model is saved
 ITERS_PER_SAVE = 100
 # absolute path where model snapshots are saved
@@ -51,7 +52,7 @@ def train(graph, data, data_update_rate = 0.5):
             saver.restore(sess, ckpt.model_checkpoint_path)
         iter = initial_step = graph['global_step'].eval()
 
-        train_writer = tf.summary.FileWriter(log_dir + '/train', sess.graph)
+        train_writer = tf.summary.FileWriter(model_dir + '/train', sess.graph)
         generator = DataGenerator(sess, graph, data, train=True, data_update_rate=data_update_rate)
         # x, _, gt = next(generator.gt())
         # logging.info("image: %s" % x)
@@ -59,7 +60,8 @@ def train(graph, data, data_update_rate = 0.5):
         # np.save('arrays/x.npy', x)
         # np.save('arrays/y.npy', gt)
 
-        for img, mask, img_gt in generator.generate():
+        #for img, mask, img_gt in generator.generate():
+        for img, mask, img_gt in generator.helper():
             # print(iter)
 
             feed_dict = {graph['x']: img, graph['y_gt']: img_gt, graph['y']: mask}
@@ -78,7 +80,7 @@ def train(graph, data, data_update_rate = 0.5):
             # logging.debug("mask : %s" % mask)
             #
             # np.save('arrays/y-%s.npy' % iter, mask)
-            logging.info("iteration %s: loss = %s, sim_score = %s, fc3 = %s" % (iter, loss, sim_score, fc3))
+            logging.info("iteration %s: loss = %s, sim_score = %s, fc3 = %s, diff=%s" % (iter, loss, sim_score, fc3, sim_score-fc3))
 
             iter += 1
             #save model
@@ -99,15 +101,19 @@ def test(graph, modelpath, data, data_update_rate=0.5):
 
         generator = DataGenerator(sess, graph, data, train=False, data_update_rate=data_update_rate)
         iter = 0
-        for img, pred, img_gt in generator.generate():
-            logging.debug("infererred image %s" % pred)
-            acc = calc_accuracy(img_gt, pred)
-            logging.info("it i = %s, acc = %s" %(iter, acc))
-            recall = calc_recall(img_gt, pred)
-            logging.info("it i = %s, recall = %s" %(iter, recall))
-            #labels = pred_to_label(inference_update)
-            mapp_pred = result_sample_mapping(img_gt, pred)
-            write_image(mapp_pred, -1, data.index_list[iter])
+        #for img, pred, img_gt in generator.generate():
+        for img, pred, img_gt in generator.helper():
+            # logging.debug("infererred image %s" % pred)
+            # acc = calc_accuracy(img_gt, pred)
+            # logging.info("it i = %s, acc = %s" %(iter, acc))
+            # recall = calc_recall(img_gt, pred)
+            # logging.info("it i = %s, recall = %s" %(iter, recall))
+            # #labels = pred_to_label(inference_update)
+            # mapp_pred = result_sample_mapping(img_gt, pred)
+            # write_image(mapp_pred, -1, data.index_list[iter])
+            feed_dict = {graph['x']: img, graph['y_gt']: img_gt, graph['y']: pred}
+            sim_score, fc3 = sess.run([graph['sim_score'], graph['fc3']], feed_dict=feed_dict)
+            print("iter %s: diff sim_score vs fc3 = %s" %(iter, sim_score - fc3))
             iter += 1
 
 def parse_args():
@@ -129,9 +135,9 @@ if __name__== "__main__":
     logging.basicConfig(filename=dir_path + '/log', format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
     #logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
 
-    img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb_1")
-    test_img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb_1")
-    img_gt_path = join(dir_path, "../", "data/weizmann_horse_db/figure_ground_1")
+    img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb_3")
+    test_img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb_3")
+    img_gt_path = join(dir_path, "../", "data/weizmann_horse_db/figure_ground_3")
     logging.info("img_dir %s" % img_path)
     logging.info("img_gt_dir %s" % img_gt_path)
 
@@ -140,7 +146,7 @@ if __name__== "__main__":
     net_params = {
         'classes': classes,
         'batch_size': BATCH_SIZE,
-        'lr': 0.001
+        'lr': 0.00001
     }
     net = DvnNet(**net_params)
     #net = DvnNet(classes=classes, batch_size=BATCH_SIZE, lr=0.0001)
@@ -153,8 +159,8 @@ if __name__== "__main__":
         train(graph, train_data, data_update_rate = data_update_rate)
     else:
         graph = net.build_network(train=False)
-        test_data = DataSet(classes, test_img_path, img_gt_path, batch_size=1, train=False)
-        modelpath = '/home/yang/projects/dvn/checkpoints/model-2800'
+        test_data = DataSet(classes, test_img_path, img_gt_path, batch_size=1, train=True) #train=False
+        modelpath = '/home/yang/projects/dvn/checkpoints/model-2000'
         test(graph, modelpath, test_data, data_update_rate=data_update_rate)
 
 

@@ -5,7 +5,9 @@ import logging
 
 
 from dvn.src.util.loss import _oracle_score_cpu
-from dvn.src.util.data import randomMask, blackMask, sampleExponential, zeroMask
+from dvn.src.util.data import randomMask, blackMask, sampleExponential, zeroMask, oneMask, left_upper_Mask, left_lower_Mask, right_upper_Mask, right_lower_Mask
+from dvn.src.util.data import left_upper1_4_mask, left_upper2_4_mask, left_upper3_4_mask, left_upper4_4_mask, left_upper2_2_mask
+
 from dvn.src.util.model import inference as infer, adversarial as adverse
 from dvn.src.util.data import generate_random_sample
 
@@ -33,6 +35,40 @@ class DataGenerator(object):
         for img, img_gt in self.data:
             logging.info("gt")
             yield img, img_gt, img_gt
+
+
+    def helper(self):
+        shape = (self.data.batch_size, self.data.size[0], self.data.size[1], self.data.num_classes)
+        i = 0
+        mask0 = left_upper1_4_mask(shape)
+        mask1 = left_upper2_4_mask(shape)
+        mask2 = left_upper3_4_mask(shape)
+        mask3 = left_upper4_4_mask(shape)
+        mask4 = zeroMask(shape)
+
+        # mask0 = blackMask(shape)
+        # mask1 = oneMask(shape)
+        # mask2 = zeroMask(shape)
+        # mask3 = left_upper_Mask(shape)
+        # mask4 = right_lower_Mask(shape)
+
+
+        while(True):
+            img, _, img_gt = next(self.gt())
+            logging.debug("img_gt %s" % img_gt[0, :, :, 0])
+            if i % 5 == 0:
+                yield img, mask0, img_gt
+            elif i % 5 == 1:
+                yield img, mask1, img_gt
+            elif i % 5 == 2:
+                yield img, mask2, img_gt
+            elif i % 5 == 3:
+                yield img, mask3, img_gt
+            elif i % 5 == 4:
+                yield img, mask4, img_gt
+            i += 1
+            i %= 5
+
 
 
     def generate_examples(self, train=False):

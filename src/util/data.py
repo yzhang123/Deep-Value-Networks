@@ -8,6 +8,82 @@ import logging
 from dvn.src.util.loss import _oracle_score_cpu
 
 
+def oneMask(shape):
+    batch = np.ones(shape, dtype=np.float32)
+    return batch
+
+def left_upper_Mask(shape):
+    batch = np.ones(shape, dtype=np.float32)
+    half_height = shape[1]/2
+    half_width = shape[2]/2
+    batch[:, :half_height, :half_width, 0] = 0.
+    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
+    return batch
+
+def right_upper_Mask(shape):
+    batch = np.ones(shape, dtype=np.float32)
+    half_height = shape[1]/2
+    half_width = shape[2]/2
+    batch[:, :half_height, half_width:, 0] = 0.
+    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
+    return batch
+
+def left_lower_Mask(shape):
+    batch = np.ones(shape, dtype=np.float32)
+    half_height = shape[1]/2
+    half_width = shape[2]/2
+    batch[:, half_height:, :half_width, 0] = 0.
+    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
+    return batch
+
+def right_lower_Mask(shape):
+    batch = np.ones(shape, dtype=np.float32)
+    half_height = shape[1]/2
+    half_width = shape[2]/2
+    batch[:, half_height:, half_width:, 0] = 0.
+    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
+    return batch
+
+def left_upper1_4_mask(shape):
+    batch = np.ones(shape, dtype=np.float32)
+    height = shape[1]/4
+    width = shape[2]/4
+    batch[:, :height, :width, 0] = 0.
+    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
+    return batch
+
+def left_upper2_4_mask(shape):
+    batch = np.ones(shape, dtype=np.float32)
+    height = shape[1]/2
+    width = shape[2]/2
+    batch[:, :height, :width, 0] = 0.
+    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
+    return batch
+
+def left_upper3_4_mask(shape):
+    batch = np.ones(shape, dtype=np.float32)
+    height = shape[1]*3/4
+    width = shape[2]*3/4
+    batch[:, :height, :width, 0] = 0.
+    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
+    return batch
+
+def left_upper4_4_mask(shape):
+    batch = np.ones(shape, dtype=np.float32)
+    height = shape[1]
+    width = shape[2]
+    batch[:, :height, :width, 0] = 0.
+    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
+    return batch
+
+def left_upper2_2_mask(shape):
+    batch = np.ones(shape, dtype=np.float32)
+    height = shape[1]/4
+    width = shape[2]/4
+    batch[:, height:-height, width:-width, 0] = 0.
+    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
+    return batch
+
 def zeroMask(shape):
     black_batch = np.zeros(shape, dtype=np.float32)
     return black_batch

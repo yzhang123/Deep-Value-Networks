@@ -8,9 +8,10 @@ from builtins import *
 import tensorflow as tf
 import numpy as np
 import sys
-#print(sys.path)
+import logging
 from dvn.src.util.loss import _oracle_score
 from tensorflow.contrib.layers import layer_norm
+from nn_toolbox.src.tf.tf_extend.tf_helpers import count_variables
 
 class DvnNet(object):
     def __init__(self, classes=None, batch_size=1, img_height=24, img_width=24, lr = 0.01):
@@ -143,4 +144,6 @@ class DvnNet(object):
 
         self._graph['merged_summary'] = tf.summary.merge_all()
 
+        n_vars = count_variables()
+        logging.info("number of variables %s" % n_vars)
         return self._graph
