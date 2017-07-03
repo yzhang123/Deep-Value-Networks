@@ -13,7 +13,7 @@ from dvn.src.util.loss import _oracle_score
 from tensorflow.contrib.layers import layer_norm
 
 class DvnNet(object):
-    def __init__(self, classes=None, batch_size=1, img_height=24, img_width=24, lr = 0.0001):
+    def __init__(self, classes=None, batch_size=1, img_height=24, img_width=24, lr = 0.01):
         self._batch_size = batch_size
         self._img_width = img_width
         self._img_height = img_height

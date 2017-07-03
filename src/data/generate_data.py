@@ -17,19 +17,20 @@ SAVE_PATH = join(root_path, 'checkpoints/')
 
 class DataGenerator(object):
 
-    def __init__(self, sess, graph, data):
+    def __init__(self, sess, graph, data, train, data_update_rate):
         self.sess = sess
         self.graph = graph
         self.data = data # (img, img_gt)
-        self.generators = [self.generate_examples(train=True)]
+        self.data_update_rate = data_update_rate
+        self.generators = [self.generate_examples(train=train)]
 
     def generate(self):
         while True:
             yield next(random.choice(self.generators))
+            #yield next(self.gt())
 
     def gt(self):
         for img, img_gt in self.data:
-
             logging.info("gt")
             yield img, img_gt, img_gt
 
@@ -45,16 +46,16 @@ class DataGenerator(object):
                     logging.info("adverse")
                     gt_indices = np.random.rand(img_gt.shape[0]) > 0.5
                     init_mask[gt_indices] = img_gt[gt_indices].copy()
-                    pred_mask = adverse(self.sess, self.graph, img, init_mask, img_gt)
+                    pred_mask = adverse(self.sess, self.graph, img, init_mask, img_gt, data_update_rate=self.data_update_rate, train=train)
                 elif rand > 0.15:
                     logging.info("inference")
-                    pred_mask = infer(self.sess, self.graph, img, init_mask)
+                    pred_mask = infer(self.sess, self.graph, img, init_mask, data_update_rate=self.data_update_rate, train=train)
                 else:
                     logging.info("rand")
                     teta = 0.05
                     pred_mask = generate_random_sample(shape, teta, img_gt)
             else:
-                pred_mask = infer(self.sess, self.graph, img, init_mask)
+                pred_mask = infer(self.sess, self.graph, img, init_mask, data_update_rate=self.data_update_rate, train=train)
             yield img, pred_mask, img_gt
             # yield img, init_mask, img_gt
 

@@ -42,8 +42,8 @@ def _oracle_score_cpu(y, y_gt):
 def calc_accuracy(img_reference, img_pred):
     ref_labels = np.argmax(img_reference, axis=-1)
     pred_labels = np.argmax(img_pred, axis=-1)
-    logging.debug("gt: %s" % ref_labels)
-    logging.debug("pred: %s" % pred_labels)
+    # logging.debug("gt: %s" % ref_labels)
+    # logging.debug("pred: %s" % pred_labels)
     correct = (pred_labels == ref_labels)
     acc = np.mean(correct)
     return acc

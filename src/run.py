@@ -34,7 +34,7 @@ log_dir = join(root_path, "logs")
 # Number of training iterations
 ITERS_TRAIN = 1000
 # Number of inference iterations
-ITERS_TEST = 30
+ITERS_TEST = 50
 # Number of iterations after a snapshot of the model is saved
 ITERS_PER_SAVE = 50
 # absolute path where model snapshots are saved
@@ -44,7 +44,7 @@ BATCH_SIZE = 1
 
 
 
-def train(graph, data):
+def train(graph, data, data_update_rate = 0.5):
     saver = tf.train.Saver()
     with tf.Session() as sess:
         tf.global_variables_initializer().run()
@@ -54,7 +54,7 @@ def train(graph, data):
         iter = initial_step = graph['global_step'].eval()
 
         train_writer = tf.summary.FileWriter(log_dir + '/train', sess.graph)
-        generator = DataGenerator(sess, graph, data)
+        generator = DataGenerator(sess, graph, data, train=True, data_update_rate=data_update_rate)
         # x, _, gt = next(generator.gt())
         # logging.info("image: %s" % x)
         # logging.info("gt: %s" % gt)
@@ -65,9 +65,8 @@ def train(graph, data):
             # print(iter)
 
             feed_dict = {graph['x']: img, graph['y_gt']: img_gt, graph['y']: mask}
-            #feed_dict = {graph['x']: x, graph['y_gt']: gt, graph['y']: mask}
-            #_, loss, sim_score, gradient, summary = sess.run([graph['train_optimizer'], graph['loss'], graph['sim_score'], graph['inference_grad'], graph['merged_summary']], feed_dict=feed_dict)
-            loss, sim_score, fc3, gradient, summary = sess.run([graph['loss'], graph['sim_score'], graph['fc3'], graph['inference_grad'], graph['merged_summary']], feed_dict=feed_dict)
+            _, loss, sim_score, fc3, gradient, summary = sess.run([graph['train_optimizer'], graph['loss'], graph['sim_score'], graph['fc3'], graph['inference_grad'], graph['merged_summary']], feed_dict=feed_dict)
+            #loss, sim_score, fc3, gradient, summary = sess.run([graph['loss'], graph['sim_score'], graph['fc3'], graph['inference_grad'], graph['merged_summary']], feed_dict=feed_dict)
 
             train_writer.add_summary(summary, iter)
             # feed_dict = {graph['x']: img, graph['y']: mask}
@@ -91,7 +90,7 @@ def train(graph, data):
                 break
         train_writer.close()
 
-def test(graph, modelpath, data):
+def test(graph, modelpath, data, data_update_rate=0.5):
     with tf.Session() as sess:
 
         tf.global_variables_initializer().run()
@@ -100,11 +99,12 @@ def test(graph, modelpath, data):
         saver = tf.train.Saver()
         saver.restore(sess, modelpath)
 
-        generator = DataGenerator(sess, graph, data, train=False)
+        generator = DataGenerator(sess, graph, data, train=False, data_update_rate=data_update_rate)
         iter = 0
         for img, pred, img_gt in generator.generate():
-            # acc = calc_accuracy(img_gt, inference_update)
-            # logging.info("it i = %s, acc = %s" %(iter, acc))
+            logging.debug("infererred image %s" % pred)
+            acc = calc_accuracy(img_gt, pred)
+            logging.info("it i = %s, acc = %s" %(iter, acc))
             recall = calc_recall(img_gt, pred)
             logging.info("it i = %s, recall = %s" %(iter, recall))
             #labels = pred_to_label(inference_update)
@@ -132,7 +132,7 @@ if __name__== "__main__":
     #logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
 
     img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb_1")
-    test_img_path = join(dir_path, "../", "data/weizmann_horse_db/gray_1")
+    test_img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb")
     img_gt_path = join(dir_path, "../", "data/weizmann_horse_db/figure_ground_1")
     logging.info("img_dir %s" % img_path)
     logging.info("img_gt_dir %s" % img_gt_path)
@@ -142,20 +142,21 @@ if __name__== "__main__":
     net_params = {
         'classes': classes,
         'batch_size': BATCH_SIZE,
-        'lr': 0.01
+        'lr': 0.001
     }
     net = DvnNet(**net_params)
     #net = DvnNet(classes=classes, batch_size=BATCH_SIZE, lr=0.0001)
 
+    data_update_rate = 10
 
     if args.train:
         graph = net.build_network(train=True)
         train_data = DataSet(classes, img_path, img_gt_path, batch_size=BATCH_SIZE, train=True)
-        train(graph, train_data)
+        train(graph, train_data, data_update_rate = data_update_rate)
     else:
         graph = net.build_network(train=False)
         test_data = DataSet(classes, test_img_path, img_gt_path, batch_size=1, train=False)
-        modelpath = '/home/yang/projects/dvn/checkpoints/model-300'
-        test(graph, modelpath, test_data)
+        modelpath = '/home/yang/projects/dvn/checkpoints/model-2800'
+        test(graph, modelpath, test_data, data_update_rate=data_update_rate)
 
 
