@@ -38,12 +38,13 @@ class DataGenerator(object):
 
 
     def helper(self):
+        img, _, img_gt = next(self.gt())
         shape = (self.data.batch_size, self.data.size[0], self.data.size[1], self.data.num_classes)
         i = 0
-        mask0 = left_upper1_4_mask(shape)
-        mask1 = left_upper2_4_mask(shape)
-        mask2 = left_upper3_4_mask(shape)
-        mask3 = left_upper4_4_mask(shape)
+        mask0 = img_gt
+        mask1 = left_upper2_2_mask(shape)
+        mask2 = left_upper1_4_mask(shape)
+        mask3 = randomMask(shape)
         mask4 = zeroMask(shape)
 
         # mask0 = blackMask(shape)
@@ -54,7 +55,6 @@ class DataGenerator(object):
 
 
         while(True):
-            img, _, img_gt = next(self.gt())
             logging.debug("img_gt %s" % img_gt[0, :, :, 0])
             if i % 5 == 0:
                 yield img, mask0, img_gt
@@ -68,6 +68,7 @@ class DataGenerator(object):
                 yield img, mask4, img_gt
             i += 1
             i %= 5
+            img, _, img_gt = next(self.gt())
 
 
 
