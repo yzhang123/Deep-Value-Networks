@@ -75,7 +75,7 @@ class DataSet(object):
         self.data_tuples = get_data_tuples(img_dir, gt_dir, self.index_list, self.img_ext)
         self.batch_iterator = BatchIterator(self.image_iterator(self.data_tuples, repeat=train, shuffle=train), batch_size=batch_size)
         #self.avg_img = gaussian_filter(self.get_avg_img(img_dir), 3)
-        #self.avg_img = self.get_avg_img(img_dir)
+        self.avg_img, self.avg_mask = map(lambda x: gaussian_filter(x, 3), self.get_avg_img(img_dir))
 
     def __iter__(self):
         return iter(self.batch_iterator)
@@ -134,17 +134,22 @@ class DataSet(object):
 
 
     def get_avg_img(self, img_dir):
-        files = [(a, b) for a, b in self.data_tuples]
         avg_img = np.zeros([self.size[0], self.size[1], 3], np.uint8)
-        avg_mask = np.zeros([self.size[0], self.size[1], 2], np.uint8)
-        for f in files:
-            img = Image.open(f)
-            img = img.resize(self.size, resample=Image.BILINEAR)
+        avg_mask = np.zeros([self.size[0], self.size[1], 3], np.uint8)
+        for f1, f2 in self.data_tuples:
+            img = Image.open(f1)
+            mask = Image.open(f2)
             img = img.convert("RGB")
+            mask = mask.convert("RGB")
+            img = img.resize(self.size, resample=Image.BILINEAR)
+            mask = mask.resize(self.size, resample=Image.NEAREST)
             img = np.asarray(img, dtype=np.uint8)
+            mask = np.asarray(mask, dtype=np.uint8)
             avg_img += img
-        avg_img = avg_img / len(files)
-        return avg_img
+            avg_mask += mask
+        avg_img = avg_img / len(self.data_tuples)
+        avg_mask = avg_mask / len(self.data_tuples)
+        return avg_img, avg_mask
 
 
 
@@ -169,7 +174,7 @@ if __name__=='__main__':
     test_img = np.zeros([100, 100], dtype=np.float32)
     test_img[:, :50] = 1
 
-    scipy.misc.imsave('test_img.png', test_img)
+    scipy.misc.imsave('test_img.png', data.avg_mask)
 
     idx = 0
     for img, img_gt in data:

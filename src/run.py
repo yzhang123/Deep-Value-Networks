@@ -12,6 +12,7 @@ from os.path import join
 import argparse
 from scipy.misc import imsave
 import logging
+import pprint
 
 from understand_tensorflow.src.deeplearning import save_model
 #from dkfz.train import result_sample_mapping
@@ -39,7 +40,7 @@ ITERS_PER_SAVE = 100
 # absolute path where model snapshots are saved
 SAVE_PATH = join(root_path, 'checkpoints/')
 # number of batch size of incoming data
-BATCH_SIZE = 11
+BATCH_SIZE = 10
 
 
 
@@ -65,7 +66,7 @@ def train(graph, data, data_update_rate = 0.5):
             # print(iter)
 
             feed_dict = {graph['x']: img, graph['y_gt']: img_gt, graph['y']: mask}
-            _, y_mean, loss, sim_score, fc3, gradient, sim_score_vector, summary = sess.run([graph['train_optimizer'], graph['y_mean'], graph['loss'], graph['sim_score'], graph['fc3'], graph['inference_grad'], graph['sim_score_vector'], graph['merged_summary']], feed_dict=feed_dict)
+            _, y_mean, score_diff, loss, sim_score, fc3, gradient, sim_score_vector, summary = sess.run([graph['train_optimizer'], graph['y_mean'], graph['score_diff'], graph['loss'], graph['sim_score_vector'], graph['fc3'], graph['inference_grad'], graph['sim_score_vector'], graph['merged_summary']], feed_dict=feed_dict)
             #loss, sim_score, fc3, gradient, summary = sess.run([graph['loss'], graph['sim_score'], graph['fc3'], graph['inference_grad'], graph['merged_summary']], feed_dict=feed_dict)
 
             train_writer.add_summary(summary, iter)
@@ -80,11 +81,10 @@ def train(graph, data, data_update_rate = 0.5):
             # logging.debug("mask : %s" % mask)
             #
             # np.save('arrays/y-%s.npy' % iter, mask)
-            logging.info("iteration %s: loss = %s, sim_score = %s, fc3 = %s, diff=%s" % (iter, loss, sim_score, fc3, sim_score-fc3))
-            logging.info("sim_score vector")
-            logging.info(sim_score_vector)
-            logging.info("y_mean")
-            logging.info(y_mean)
+            logging.info("iteration %s: loss = %s, sim_score = %s, fc3 = %s, sim_score - net_output=%s, " % (iter, loss, sim_score, fc3, sim_score-fc3.flatten()))
+            # logging.info("sim_score vector ")
+            # logging.info(pprint.pformat(sim_score_vector))
+            logging.info("y_mean %s" % y_mean)
             iter += 1
             #save model
             if iter % ITERS_PER_SAVE == 0:

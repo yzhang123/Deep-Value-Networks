@@ -42,16 +42,9 @@ class DataGenerator(object):
 
     def helper(self):
 
-        data_batch = []
-
-        # mask0 = blackMask(shape)
-        # mask1 = oneMask(shape)
-        # mask2 = zeroMask(shape)
-        # mask3 = left_upper_Mask(shape)
         # mask4 = right_lower_Mask(shape)
         def _get_mask(img_gt):
             shape = (self.data.size[0], self.data.size[1], self.data.num_classes)
-            i = 0
             mask0 = img_gt
             mask1 = left_upper2_2_mask(shape)
             mask2 = left_upper1_4_mask(shape)
@@ -60,7 +53,6 @@ class DataGenerator(object):
 
             #logging.debug("img_gt %s" % img_gt[0, :, :, 0])
             idx = np.random.randint(0, 5)
-            return mask0
             if idx == 0:
                 return mask0
             elif idx == 1:

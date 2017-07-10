@@ -13,6 +13,7 @@ from dvn.src.util.loss import _oracle_score
 from tensorflow.contrib.layers import layer_norm
 from nn_toolbox.src.tf.tf_extend.tf_helpers import count_variables
 from nn_toolbox.src.tf.tf_extend.metrics import r_squared
+from tensorflow.contrib.layers import flatten
 
 class DvnNet(object):
     def __init__(self, classes=None, batch_size=1, img_height=24, img_width=24, lr = 0.01):
@@ -86,13 +87,15 @@ class DvnNet(object):
         sim_score = _oracle_score(y, y_gt) # shape=[batchsize x 1]
         self._graph['sim_score_vector'] = sim_score
         mean_sim_score = tf.reduce_mean(sim_score)
-        tf.summary.scalar('sim_score', mean_sim_score)
+        tf.summary.scalar('mean_sim_score', mean_sim_score)
         loss_CE = tf.square(tf.subtract(sim_score, score))
         #loss_CE = -sim_score * tf.log(score) - (1-sim_score) * tf.log(1-score)
         mean_loss_CE = tf.reduce_mean(loss_CE)
-        tf.summary.scalar('cross_entropy', mean_loss_CE)
-        tf.summary.scalar('score_diff', tf.reduce_mean(score - sim_score))
-        tf.summary.scalar('r_squared', r_squared(targets=sim_score, logits=score))
+        tf.summary.scalar('mean_loss', mean_loss_CE)
+        logging.info("shape %s" % score.shape)
+        self._graph['score_diff'] = tf.subtract(sim_score, tf.reshape(score, [-1]))
+        tf.summary.scalar('mean_simscore-netoutput', tf.reduce_mean(self._graph['score_diff']))
+        tf.summary.scalar('r_squared', r_squared(targets=sim_score, logits=tf.reshape(score, [-1])))
         return mean_loss_CE, mean_sim_score
 
     def variable_summaries(self, var, name=''):
@@ -116,11 +119,11 @@ class DvnNet(object):
 
         with tf.variable_scope('input'):
 
-            self._graph['x'] = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, 3], name='x-input') # 3+k between 0 and 1
+            self._graph['x'] = tf.placeholder(tf.float32, shape=[None, None, None, 3], name='x-input') # 3+k between 0 and 1
             tf.summary.image("x", self._graph['x'])
-            self._graph['y_gt'] = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, self._num_classes], name='y-gt') # ground truth segmentation
-            self._graph['y'] = tf.placeholder(tf.float32, shape=[self._batch_size, None, None, self._num_classes], name='y')
-            self._graph['y_mean'] = tf.reduce_mean(self._graph['y'], [1,2,3])
+            self._graph['y_gt'] = tf.placeholder(tf.float32, shape=[None, None, None, self._num_classes], name='y-gt') # ground truth segmentation
+            self._graph['y'] = tf.placeholder(tf.float32, shape=[None, None, None, self._num_classes], name='y')
+            self._graph['y_mean'] = tf.reduce_mean(self._graph['y'], [1,2])[:, 0]
         with tf.variable_scope('input-concat'):
             self.x_concat = tf.concat([self._graph['x'], self._graph['y']], 3, name='concat')
 
@@ -133,7 +136,7 @@ class DvnNet(object):
             self._graph['conv3'] = self.conv_acti_layer(self._graph['conv2'], [5,5], 128, "conv3", 2, layernorm=False)
 
         conv3_flat = tf.reshape(self._graph['conv3'], [-1, 6*6*128], name='pre_fc')
-        self._graph['fc1'] = self.fc_acti_layer(conv3_flat, weight_shape=[6 * 6 * 128, 384], bias_shape=[384], name='fc1', dropout=train, layernorm=False)
+        self._graph['fc1'] = self.fc_acti_layer(conv3_flat, weight_shape=[6 * 6 * 128, 384], bias_shape=[384], name='fc1', dropout=False, layernorm=False)
         self._graph['fc2'] = self.fc_acti_layer(self._graph['fc1'], weight_shape=[384, 192], bias_shape=[192], name='fc2', layernorm=False)
         self._graph['fc3'] = self.fc_acti_layer(self._graph['fc2'], weight_shape=[192, 1], bias_shape=[1], activation_fn=tf.nn.sigmoid, name='fc3')
 
