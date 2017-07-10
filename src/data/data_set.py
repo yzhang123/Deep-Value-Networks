@@ -59,7 +59,7 @@ class BatchIterator(object):
 
 class DataSet(object):
 
-    def __init__(self, classes, img_dir, gt_dir=None, batch_size=1, size=(100, 100), train=True):
+    def __init__(self, classes, img_dir, gt_dir=None, batch_size=1, size=(24, 24), train=True):
 
         self.trainingSet = []
         self.validationSet = []
@@ -80,6 +80,7 @@ class DataSet(object):
     def __iter__(self):
         return iter(self.batch_iterator)
 
+
     def image_iterator(self, data_tuples, index_list=None, repeat=True, shuffle=True):
         #assert isinstance(data_tuples, list), "data tuples it not list but %s " % type(data_tuples)
         if shuffle:
@@ -99,14 +100,14 @@ class DataSet(object):
 
                 if self.gt_dir:
                     seg = Image.open(seg_file)
+                    if seg.mode != "RGB":
+                        seg = seg.convert("RGB")
                     if seg.size != self.size:
                         seg = seg.resize(self.size, resample=Image.NEAREST)
 
                     #if img.size != seg.size:
                     #    raise OverflowError('Image and label size do not match %s != %s ' %(img.size, seg.size))
-                    if seg.mode != "RGB":
-                        seg = seg.convert("RGB")
-                    seg = np.asarray(seg, dtype=np.uint8)
+                    seg = np.array(seg, dtype=np.uint8)
                     seg = color_decode(seg, self.classes, self.color_map)
                 else:
                     seg = np.zeros([self.size[0], self.size[1], self.num_classes], dtype=np.float32)
@@ -160,15 +161,21 @@ if __name__=='__main__':
     img_gt_path = join(root_path, "data/weizmann_horse_db/figure_ground")
 
     classes = ['__background__', 'horse']
-    data = DataSet(classes, img_path, img_gt_path, batch_size=1, train=True)
+    data = DataSet(classes, img_path, img_gt_path, batch_size=1, train=True, size=(24, 24))
 
     import scipy.misc
 
+
+    test_img = np.zeros([100, 100], dtype=np.float32)
+    test_img[:, :50] = 1
+
+    scipy.misc.imsave('test_img.png', test_img)
+
     idx = 0
     for img, img_gt in data:
-        scipy.misc.imsave('img_%s.jpg' %idx, img[0, ...])
-        scipy.misc.imsave('gt0_%s.jpg' % idx, img_gt[0, ..., 0])
-        scipy.misc.imsave('gt1_%s.jpg'% idx, img_gt[0, ..., 1])
+        scipy.misc.imsave('img_%s.png' %idx, img[0, ...])
+        scipy.misc.imsave('gt0_%s.png' % idx, img_gt[0, ..., 0])
+        scipy.misc.imsave('gt1_%s.png'% idx, img_gt[0, ..., 1])
         idx += 1
         if (idx > 10):
             break

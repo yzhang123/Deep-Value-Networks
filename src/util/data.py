@@ -139,8 +139,10 @@ def get_data_tuples(img_dir, labels_dir, index_list=None, extension=None):
 
 def color_decode(orig_img, classes, color_map):
     seg = np.zeros([orig_img.shape[0], orig_img.shape[1], len(classes)], dtype=np.float32)
-    for id, key in enumerate(classes):
-        seg[:, :, id] = np.all(orig_img == color_map[key], axis = 2)
+    for id, key in enumerate(classes[1:]):
+        #seg[:, :, id+1] = np.all(orig_img == color_map[key], axis = 2)
+        seg[:, :, id+1] = np.all(orig_img > (127, 127, 127), axis = 2)
+    seg[:, :, 0] = 1 - seg[:, :, 1]
     return seg
 
 def result_sample_mapping(gt_labels, pred_labels):
