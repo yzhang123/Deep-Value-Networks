@@ -11,6 +11,9 @@ from dvn.src.util.data import left_upper1_4_mask, left_upper2_4_mask, left_upper
 from dvn.src.util.model import inference as infer, adversarial as adverse
 from dvn.src.util.data import generate_random_sample
 
+from nn_toolbox.src.datasets.iterators import BatchIterator
+
+
 
 module_path = abspath(__file__)
 dir_path = dirname(module_path)
@@ -38,37 +41,50 @@ class DataGenerator(object):
 
 
     def helper(self):
-        img, _, img_gt = next(self.gt())
-        shape = (self.data.batch_size, self.data.size[0], self.data.size[1], self.data.num_classes)
-        i = 0
-        mask0 = img_gt
-        mask1 = left_upper2_2_mask(shape)
-        mask2 = left_upper1_4_mask(shape)
-        mask3 = randomMask(shape)
-        mask4 = zeroMask(shape)
+
+        data_batch = []
 
         # mask0 = blackMask(shape)
         # mask1 = oneMask(shape)
         # mask2 = zeroMask(shape)
         # mask3 = left_upper_Mask(shape)
         # mask4 = right_lower_Mask(shape)
+        def _get_mask(img_gt):
+            shape = (self.data.size[0], self.data.size[1], self.data.num_classes)
+            i = 0
+            mask0 = img_gt
+            mask1 = left_upper2_2_mask(shape)
+            mask2 = left_upper1_4_mask(shape)
+            mask3 = randomMask(shape)
+            mask4 = zeroMask(shape)
 
+            #logging.debug("img_gt %s" % img_gt[0, :, :, 0])
+            idx = np.random.randint(0, 5)
+            return mask0
+            if idx == 0:
+                return mask0
+            elif idx == 1:
+                return mask1
+            elif idx == 2:
+                return mask2
+            elif idx == 3:
+                return mask3
+            elif idx == 4:
+                return mask4
 
         while(True):
-            logging.debug("img_gt %s" % img_gt[0, :, :, 0])
-            if i % 5 == 0:
-                yield img, mask0, img_gt
-            elif i % 5 == 1:
-                yield img, mask1, img_gt
-            elif i % 5 == 2:
-                yield img, mask2, img_gt
-            elif i % 5 == 3:
-                yield img, mask3, img_gt
-            elif i % 5 == 4:
-                yield img, mask4, img_gt
-            i += 1
-            i %= 5
             img, _, img_gt = next(self.gt())
+            all_masks = []
+            for i in range(img_gt.shape[0]):
+                mask = _get_mask(img_gt[i])
+                all_masks.append(mask)
+            all_masks = np.stack(all_masks, axis=0)
+
+            data = [img, all_masks, img_gt]
+            yield data
+
+
+
 
 
 
@@ -79,20 +95,34 @@ class DataGenerator(object):
             init_mask = self.get_initialization(shape)
             rand = np.random.rand()
             if train:
-                if rand > 0.55:
+                if rand > 0.20:
                     logging.info("adverse")
-                    gt_indices = np.random.rand(img_gt.shape[0]) > 0.5
+                    gt_indices = np.random.rand(img_gt.shape[0]) > 0.3
                     init_mask[gt_indices] = img_gt[gt_indices].copy()
-                    pred_mask = adverse(self.sess, self.graph, img, init_mask, img_gt, data_update_rate=self.data_update_rate, train=train)
-                elif rand > 0.15:
+                    pred_mask = adverse(self.sess, self.graph, img, init_mask, img_gt, data_update_rate=self.data_update_rate, train=train, iterations=3)
+                elif rand > 0.10:
                     logging.info("inference")
-                    pred_mask = infer(self.sess, self.graph, img, init_mask, data_update_rate=self.data_update_rate, train=train)
+                    pred_mask = infer(self.sess, self.graph, img, init_mask, data_update_rate=self.data_update_rate, train=train, iterations=20)
                 else:
-                    logging.info("rand")
-                    teta = 0.05
-                    pred_mask = generate_random_sample(shape, teta, img_gt)
+                    # logging.info("rand")
+                    # teta = 0.05
+                    # pred_mask = generate_random_sample(shape, teta, img_gt)
+
+                    logging.info("inference + gt")
+                    pred_mask = infer(self.sess, self.graph, img, init_mask, data_update_rate=self.data_update_rate, train=train, iterations=20)
+                    number_elements = len(np.reshape(pred_mask, -1))
+                    rand_positions = np.random.choice(number_elements, int(0.5 * number_elements))
+                    for pos in rand_positions:
+                        idx3 = pos % self.data.num_classes
+                        pos  = pos // self.data.num_classes
+                        idx2 = pos % self.data.size[1]
+                        pos  = pos // self.data.size[1]
+                        idx1 = pos % self.data.size[0]
+                        pos  = pos // self.data.size[0]
+                        idx0 = pos % self.data.batch_size
+                        pred_mask[idx0][idx1][idx2][idx3] = img_gt[idx0][idx1][idx2][idx3]
             else:
-                pred_mask = infer(self.sess, self.graph, img, init_mask, data_update_rate=self.data_update_rate, train=train)
+                pred_mask = infer(self.sess, self.graph, img, init_mask, data_update_rate=self.data_update_rate, train=train, iterations=20)
             yield img, pred_mask, img_gt
             # yield img, init_mask, img_gt
 

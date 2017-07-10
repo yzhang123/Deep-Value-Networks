@@ -11,6 +11,7 @@ from PIL import Image
 import os
 from os.path import isfile, join
 from dvn.src.util.data import get_data_tuples, color_decode, get_image_index_list
+from scipy.ndimage.filters import gaussian_filter
 
 
 class BatchIterator(object):
@@ -58,7 +59,7 @@ class BatchIterator(object):
 
 class DataSet(object):
 
-    def __init__(self, classes, img_dir, gt_dir=None, batch_size=1, size=(24, 24), train=True):
+    def __init__(self, classes, img_dir, gt_dir=None, batch_size=1, size=(100, 100), train=True):
 
         self.trainingSet = []
         self.validationSet = []
@@ -72,8 +73,9 @@ class DataSet(object):
         self.batch_size = batch_size
         self.index_list, self.img_ext = get_image_index_list(img_dir)
         self.data_tuples = get_data_tuples(img_dir, gt_dir, self.index_list, self.img_ext)
-        self.mean_pixel = self.get_mean_pixel(img_dir)
         self.batch_iterator = BatchIterator(self.image_iterator(self.data_tuples, repeat=train, shuffle=train), batch_size=batch_size)
+        #self.avg_img = gaussian_filter(self.get_avg_img(img_dir), 3)
+        #self.avg_img = self.get_avg_img(img_dir)
 
     def __iter__(self):
         return iter(self.batch_iterator)
@@ -130,19 +132,43 @@ class DataSet(object):
         return color_dict
 
 
-    def get_mean_pixel(self, img_dir):
-        files = [a for a, b in self.data_tuples]
-        mean_pixel = np.zeros([self.size[0], self.size[1], 3], np.uint8)
+    def get_avg_img(self, img_dir):
+        files = [(a, b) for a, b in self.data_tuples]
+        avg_img = np.zeros([self.size[0], self.size[1], 3], np.uint8)
+        avg_mask = np.zeros([self.size[0], self.size[1], 2], np.uint8)
         for f in files:
             img = Image.open(f)
             img = img.resize(self.size, resample=Image.BILINEAR)
             img = img.convert("RGB")
             img = np.asarray(img, dtype=np.uint8)
-            mean_pixel += img
-        mean_pixel = mean_pixel / len(files)
-        return mean_pixel
+            avg_img += img
+        avg_img = avg_img / len(files)
+        return avg_img
 
 
 
 
+if __name__=='__main__':
+    module_path = os.path.abspath(__file__)
+    dir_path = os.path.dirname(module_path)  # store dir_path for later use
+    root_path = join(dir_path, "../../")
+    log_dir = join(root_path, "logs")
+    model_dir = join(root_path, "model")
 
+    img_path = join(root_path, "data/weizmann_horse_db/rgb")
+    test_img_path = join(root_path, "data/weizmann_horse_db/rgb")
+    img_gt_path = join(root_path, "data/weizmann_horse_db/figure_ground")
+
+    classes = ['__background__', 'horse']
+    data = DataSet(classes, img_path, img_gt_path, batch_size=1, train=True)
+
+    import scipy.misc
+
+    idx = 0
+    for img, img_gt in data:
+        scipy.misc.imsave('img_%s.jpg' %idx, img[0, ...])
+        scipy.misc.imsave('gt0_%s.jpg' % idx, img_gt[0, ..., 0])
+        scipy.misc.imsave('gt1_%s.jpg'% idx, img_gt[0, ..., 1])
+        idx += 1
+        if (idx > 10):
+            break

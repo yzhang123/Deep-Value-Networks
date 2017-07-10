@@ -48,8 +48,8 @@ def left_upper1_4_mask(shape):
     batch = np.ones(shape, dtype=np.float32)
     height = shape[1]/4
     width = shape[2]/4
-    batch[:, :height, :width, 0] = 0.
-    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
+    batch[:height, :width, 0] = 0.
+    batch[:, :, 1] = 1. - batch[ :, :, 0]
     return batch
 
 def left_upper2_4_mask(shape):
@@ -80,8 +80,8 @@ def left_upper2_2_mask(shape):
     batch = np.ones(shape, dtype=np.float32)
     height = shape[1]/4
     width = shape[2]/4
-    batch[:, height:-height, width:-width, 0] = 0.
-    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
+    batch[ height:-height, width:-width, 0] = 0.
+    batch[ :, :, 1] = 1. - batch[ :, :, 0]
     return batch
 
 def zeroMask(shape):
@@ -95,8 +95,8 @@ def blackMask(shape):
 
 def randomMask(shape):
     batch = np.zeros(shape, dtype=np.float32)
-    batch[:, :, :, 0] = np.random.rand()
-    batch[:, :, :, 1] = 1 - batch[:, :, :, 0]
+    batch[ :, :, 0] = np.random.rand()
+    batch[:, :, 1] = 1 - batch[ :, :, 0]
     return batch
 
 def pred_to_label(seg_masks):

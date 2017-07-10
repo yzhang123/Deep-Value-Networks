@@ -39,7 +39,7 @@ ITERS_PER_SAVE = 100
 # absolute path where model snapshots are saved
 SAVE_PATH = join(root_path, 'checkpoints/')
 # number of batch size of incoming data
-BATCH_SIZE = 1
+BATCH_SIZE = 11
 
 
 
@@ -65,7 +65,7 @@ def train(graph, data, data_update_rate = 0.5):
             # print(iter)
 
             feed_dict = {graph['x']: img, graph['y_gt']: img_gt, graph['y']: mask}
-            _, loss, sim_score, fc3, gradient, summary = sess.run([graph['train_optimizer'], graph['loss'], graph['sim_score'], graph['fc3'], graph['inference_grad'], graph['merged_summary']], feed_dict=feed_dict)
+            _, y_mean, loss, sim_score, fc3, gradient, sim_score_vector, summary = sess.run([graph['train_optimizer'], graph['y_mean'], graph['loss'], graph['sim_score'], graph['fc3'], graph['inference_grad'], graph['sim_score_vector'], graph['merged_summary']], feed_dict=feed_dict)
             #loss, sim_score, fc3, gradient, summary = sess.run([graph['loss'], graph['sim_score'], graph['fc3'], graph['inference_grad'], graph['merged_summary']], feed_dict=feed_dict)
 
             train_writer.add_summary(summary, iter)
@@ -81,7 +81,10 @@ def train(graph, data, data_update_rate = 0.5):
             #
             # np.save('arrays/y-%s.npy' % iter, mask)
             logging.info("iteration %s: loss = %s, sim_score = %s, fc3 = %s, diff=%s" % (iter, loss, sim_score, fc3, sim_score-fc3))
-
+            logging.info("sim_score vector")
+            logging.info(sim_score_vector)
+            logging.info("y_mean")
+            logging.info(y_mean)
             iter += 1
             #save model
             if iter % ITERS_PER_SAVE == 0:
@@ -101,19 +104,20 @@ def test(graph, modelpath, data, data_update_rate=0.5):
 
         generator = DataGenerator(sess, graph, data, train=False, data_update_rate=data_update_rate)
         iter = 0
-        #for img, pred, img_gt in generator.generate():
-        for img, pred, img_gt in generator.helper():
+        for img, pred, img_gt in generator.generate():
+        #for img, pred, img_gt in generator.helper():
             # logging.debug("infererred image %s" % pred)
             # acc = calc_accuracy(img_gt, pred)
             # logging.info("it i = %s, acc = %s" %(iter, acc))
             # recall = calc_recall(img_gt, pred)
             # logging.info("it i = %s, recall = %s" %(iter, recall))
-            # #labels = pred_to_label(inference_update)
-            # mapp_pred = result_sample_mapping(img_gt, pred)
-            # write_image(mapp_pred, -1, data.index_list[iter])
+            labels = pred_to_label(pred)
+            mapp_pred = result_sample_mapping(img_gt, pred)
+            write_image(mapp_pred, -1, data.index_list[iter])
             feed_dict = {graph['x']: img, graph['y_gt']: img_gt, graph['y']: pred}
             sim_score, fc3 = sess.run([graph['sim_score'], graph['fc3']], feed_dict=feed_dict)
-            print("iter %s: diff sim_score vs fc3 = %s" %(iter, sim_score - fc3))
+
+            print("iter %s: simscore = %s, fc3 = %s, diff sim_score vs fc3 = %s" %(iter, sim_score, fc3, sim_score - fc3))
             iter += 1
 
 def parse_args():
@@ -135,9 +139,9 @@ if __name__== "__main__":
     logging.basicConfig(filename=dir_path + '/log', format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
     #logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
 
-    img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb_3")
-    test_img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb_3")
-    img_gt_path = join(dir_path, "../", "data/weizmann_horse_db/figure_ground_3")
+    img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb_1")
+    test_img_path = join(dir_path, "../", "data/weizmann_horse_db/rgb_1")
+    img_gt_path = join(dir_path, "../", "data/weizmann_horse_db/figure_ground_1")
     logging.info("img_dir %s" % img_path)
     logging.info("img_gt_dir %s" % img_gt_path)
 
@@ -146,7 +150,7 @@ if __name__== "__main__":
     net_params = {
         'classes': classes,
         'batch_size': BATCH_SIZE,
-        'lr': 0.00001
+        'lr': 0.01
     }
     net = DvnNet(**net_params)
     #net = DvnNet(classes=classes, batch_size=BATCH_SIZE, lr=0.0001)
@@ -159,8 +163,8 @@ if __name__== "__main__":
         train(graph, train_data, data_update_rate = data_update_rate)
     else:
         graph = net.build_network(train=False)
-        test_data = DataSet(classes, test_img_path, img_gt_path, batch_size=1, train=True) #train=False
-        modelpath = '/home/yang/projects/dvn/checkpoints/model-2000'
+        test_data = DataSet(classes, test_img_path, img_gt_path, batch_size=1, train=False) #train=False
+        modelpath = '/home/yang/projects/dvn/checkpoints/model-500'
         test(graph, modelpath, test_data, data_update_rate=data_update_rate)
 
 

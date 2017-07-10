@@ -16,7 +16,10 @@ def _oracle_score(y, y_gt):
     y_min = tf.reduce_sum(tf.minimum(y, y_gt), [1, 2])
     y_max = tf.reduce_sum(tf.maximum(y, y_gt), [1, 2])
     y_divide = tf.divide(y_min, y_max)
-    return tf.reduce_mean(y_divide, 1)
+    result = tf.reduce_mean(y_divide, 1)
+    logging.info("oracle score")
+    logging.info(result)
+    return result
 
 
 def _oracle_score_cpu(y, y_gt):
