@@ -26,7 +26,7 @@ class DvnNet(object):
         self._learning_rate = lr
         self._keep_prob = 0.75
         self.regularizer=tf.nn.l2_loss
-        self.weight_decay = 0.001
+        self.weight_decay = 0.0001
 
     def conv_acti_layer(self, bottom, filter_shape, filter_depth, name, stride, padding='SAME', layernorm=False):
         strides = [1, stride, stride, 1]
@@ -123,7 +123,7 @@ class DvnNet(object):
             tf.summary.image("x", self._graph['x'])
             self._graph['y_gt'] = tf.placeholder(tf.float32, shape=[None, None, None, self._num_classes], name='y-gt') # ground truth segmentation
             self._graph['y'] = tf.placeholder(tf.float32, shape=[None, None, None, self._num_classes], name='y')
-            self._graph['y_mean'] = tf.reduce_mean(self._graph['y'], [1,2])[:, 0]
+            self._graph['y_mean'] = tf.reduce_mean(self._graph['y'], [1,2])[..., 1]
         with tf.variable_scope('input-concat'):
             self.x_concat = tf.concat([self._graph['x'], self._graph['y']], 3, name='concat')
 

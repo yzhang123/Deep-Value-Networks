@@ -12,77 +12,77 @@ def oneMask(shape):
     batch = np.ones(shape, dtype=np.float32)
     return batch
 
-def left_upper_Mask(shape):
-    batch = np.ones(shape, dtype=np.float32)
-    half_height = shape[1]/2
-    half_width = shape[2]/2
-    batch[:, :half_height, :half_width, 0] = 0.
-    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
-    return batch
-
-def right_upper_Mask(shape):
-    batch = np.ones(shape, dtype=np.float32)
-    half_height = shape[1]/2
-    half_width = shape[2]/2
-    batch[:, :half_height, half_width:, 0] = 0.
-    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
-    return batch
-
-def left_lower_Mask(shape):
-    batch = np.ones(shape, dtype=np.float32)
-    half_height = shape[1]/2
-    half_width = shape[2]/2
-    batch[:, half_height:, :half_width, 0] = 0.
-    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
-    return batch
-
-def right_lower_Mask(shape):
-    batch = np.ones(shape, dtype=np.float32)
-    half_height = shape[1]/2
-    half_width = shape[2]/2
-    batch[:, half_height:, half_width:, 0] = 0.
-    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
-    return batch
-
 def left_upper1_4_mask(shape):
     batch = np.ones(shape, dtype=np.float32)
-    height = shape[1]/4
-    width = shape[2]/4
-    batch[:height, :width, 0] = 0.
-    batch[:, :, 1] = 1. - batch[ :, :, 0]
-    return batch
+    if len(shape) == 3:
+        height = shape[0]/4
+        width = shape[1]/4
+        batch[:height, :width, 0] = 0.
+        batch[:, :, 1] = 1. - batch[ :, :, 0]
+        return batch
+    elif len(shape)  == 4:
+        height = shape[1]/4
+        width = shape[2]/4
+        batch[:, height, :width, 0] = 0.
+        batch[..., 1] = 1. - batch[..., 0]
+        return batch
+    else:
+        raise Exception('shape need to have length 3 or 4 but has length %s' % len(shape))
+
 
 def left_upper2_4_mask(shape):
     batch = np.ones(shape, dtype=np.float32)
-    height = shape[1]/2
-    width = shape[2]/2
-    batch[:, :height, :width, 0] = 0.
-    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
-    return batch
+    if len(shape) == 3:
+        height = shape[0]/2
+        width = shape[1]/2
+        batch[:height, :width, 0] = 0.
+        batch[:, :, 1] = 1. - batch[ :, :, 0]
+        return batch
+    elif len(shape)  == 4:
+        height = shape[1]/2
+        width = shape[2]/2
+        batch[:, height, :width, 0] = 0.
+        batch[..., 1] = 1. - batch[..., 0]
+        return batch
+    else:
+        raise Exception('shape need to have length 3 or 4 but has length %s' % len(shape))
 
 def left_upper3_4_mask(shape):
     batch = np.ones(shape, dtype=np.float32)
-    height = shape[1]*3/4
-    width = shape[2]*3/4
-    batch[:, :height, :width, 0] = 0.
-    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
-    return batch
+    if len(shape) == 3:
+        height = shape[0]*3/4
+        width = shape[1]*3/4
+        batch[:height, :width, 0] = 0.
+        batch[:, :, 1] = 1. - batch[ :, :, 0]
+        return batch
+    elif len(shape)  == 4:
+        height = shape[1]*3/4
+        width = shape[2]*3/4
+        batch[:, height, :width, 0] = 0.
+        batch[..., 1] = 1. - batch[..., 0]
+        return batch
+    else:
+        raise Exception('shape need to have length 3 or 4 but has length %s' % len(shape))
 
-def left_upper4_4_mask(shape):
-    batch = np.ones(shape, dtype=np.float32)
-    height = shape[1]
-    width = shape[2]
-    batch[:, :height, :width, 0] = 0.
-    batch[:, :, :, 1] = 1. - batch[:, :, :, 0]
-    return batch
+
 
 def left_upper2_2_mask(shape):
     batch = np.ones(shape, dtype=np.float32)
-    height = shape[1]/4
-    width = shape[2]/4
-    batch[ height:-height, width:-width, 0] = 0.
-    batch[ :, :, 1] = 1. - batch[ :, :, 0]
-    return batch
+    if len(shape) == 3:
+        height = shape[0]/4
+        width = shape[1]/4
+        batch[height:-height, width:-width, 0] = 0.
+        batch[..., 1] = 1. - batch[..., 0]
+        return batch
+    elif len(shape) == 4:
+        height = shape[1]/4
+        width = shape[2]/4
+        batch[:, height:-height, width:-width, 0] = 0.
+        batch[..., 1] = 1. - batch[..., 0]
+        return batch
+    else:
+        raise Exception('shape need to have length 3 or 4 but has length %s' % len(shape))
+
 
 def zeroMask(shape):
     black_batch = np.zeros(shape, dtype=np.float32)
@@ -90,14 +90,17 @@ def zeroMask(shape):
 
 def blackMask(shape):
     black_batch = np.zeros(shape, dtype=np.float32)
-    black_batch[:, :, :, 0] = 1.
+    black_batch[..., 0] = 1.
     return black_batch
 
 def randomMask(shape):
     batch = np.zeros(shape, dtype=np.float32)
-    batch[ :, :, 0] = np.random.rand()
-    batch[:, :, 1] = 1 - batch[ :, :, 0]
-    return batch
+    if len(shape) == 3 or len(shape) == 4:
+        batch[..., 0] = np.random.rand()
+        batch[..., 1] = 1 - batch[..., 0]
+        return batch
+    else:
+        raise Exception('shape need to have length 3 or 4 but has length %s' % len(shape))
 
 def pred_to_label(seg_masks):
     pred_labels = np.argmax(seg_masks, -1)

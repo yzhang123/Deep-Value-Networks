@@ -54,14 +54,19 @@ class DataGenerator(object):
             #logging.debug("img_gt %s" % img_gt[0, :, :, 0])
             idx = np.random.randint(0, 5)
             if idx == 0:
+                print("mask: gt")
                 return mask0
             elif idx == 1:
+                print("mask: center crop")
                 return mask1
             elif idx == 2:
+                print("mask: left crop")
                 return mask2
             elif idx == 3:
+                print("mask: random")
                 return mask3
             elif idx == 4:
+                print("mask: zero")
                 return mask4
 
         while(True):
@@ -134,22 +139,15 @@ if __name__=='__main__':
     from dvn.src.model.dvn import DvnNet
     from dvn.src.data.data_set import DataSet
     import tensorflow as tf
-    net = DvnNet(classes=classes, batch_size = 1)
+    from dvn.src.util.loss import _oracle_score_cpu
 
-    graph = net.build_network(train=True)
-    train_data = DataSet(classes, img_path, img_gt_path, batch_size=1)
-    saver = tf.train.Saver()
-    with tf.Session() as sess:
-        tf.global_variables_initializer().run()
-        ckpt = tf.train.get_checkpoint_state(SAVE_PATH)
-        if ckpt and ckpt.model_checkpoint_path:
-            saver.restore(sess, ckpt.model_checkpoint_path)
-        generator = DataGenerator(sess, graph, train_data)
-        for a, b, c in generator.generate():
-            print("a")
-            print(a)
-            print("b")
-            print(b)
-            print("c")
-            print(c)
-            print("------------------------------")
+    data = DataSet(classes, img_path, img_gt_path, batch_size=1)
+    generator = DataGenerator(sess=None, graph=None, data=data, train=False, data_update_rate=0)
+    for img, mask, img_gt in generator.helper():
+        print("mask shape ")
+        print( mask.shape)
+        print("y_mean")
+        print(np.mean(mask, (1,2))[..., 1])
+        print("oracle score ")
+        print(_oracle_score_cpu(mask, img_gt))
+        print("\n")

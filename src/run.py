@@ -64,7 +64,7 @@ def train(graph, data, data_update_rate = 0.5):
         #for img, mask, img_gt in generator.generate():
         for img, mask, img_gt in generator.helper():
             # print(iter)
-
+            logging.info("iteration %s" % iter)
             feed_dict = {graph['x']: img, graph['y_gt']: img_gt, graph['y']: mask}
             _, y_mean, score_diff, loss, sim_score, fc3, gradient, sim_score_vector, summary = sess.run([graph['train_optimizer'], graph['y_mean'], graph['score_diff'], graph['loss'], graph['sim_score_vector'], graph['fc3'], graph['inference_grad'], graph['sim_score_vector'], graph['merged_summary']], feed_dict=feed_dict)
             #loss, sim_score, fc3, gradient, summary = sess.run([graph['loss'], graph['sim_score'], graph['fc3'], graph['inference_grad'], graph['merged_summary']], feed_dict=feed_dict)
@@ -81,10 +81,10 @@ def train(graph, data, data_update_rate = 0.5):
             # logging.debug("mask : %s" % mask)
             #
             # np.save('arrays/y-%s.npy' % iter, mask)
-            logging.info("iteration %s: loss = %s, sim_score = %s, fc3 = %s, sim_score - net_output=%s, " % (iter, loss, sim_score, fc3, sim_score-fc3.flatten()))
+            np.set_printoptions(formatter={'all': lambda x:  str(x) + '\n'})
+            logging.info("loss = %s, \ny_mean = \n %s, \nsim_score = \n%s, \nfc3 = \n%s, \nsim_score - net_output=\n%s, " % (loss, y_mean, sim_score, fc3.flatten(), sim_score-fc3.flatten()))
             # logging.info("sim_score vector ")
             # logging.info(pprint.pformat(sim_score_vector))
-            logging.info("y_mean %s" % y_mean)
             iter += 1
             #save model
             if iter % ITERS_PER_SAVE == 0:
