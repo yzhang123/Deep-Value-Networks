@@ -22,7 +22,7 @@ from dvn.src.data.generate_data import DataGenerator
 from dvn.src.util.data import pred_to_label, label_to_colorimg, blackMask, result_sample_mapping
 from dvn.src.util.input_output import write_image
 from dvn.src.util.model import inference as infer
-from dvn.src.util.loss import calc_accuracy, calc_recall
+from dvn.src.util.measures import calc_accuracy, calc_recall
 
 
 
@@ -40,7 +40,7 @@ ITERS_PER_SAVE = 100
 # absolute path where model snapshots are saved
 SAVE_PATH = join(root_path, 'checkpoints/')
 # number of batch size of incoming data
-BATCH_SIZE = 10
+BATCH_SIZE = 2
 
 
 
@@ -62,9 +62,20 @@ def train(graph, data, data_update_rate = 0.5):
         # np.save('arrays/y.npy', gt)
 
         #for img, mask, img_gt in generator.generate():
+
         for img, mask, img_gt in generator.helper():
             # print(iter)
             logging.info("iteration %s" % iter)
+            # if iter % 2 == 0:
+            #     mask_saved = mask
+            #     img_saved = img
+            #     img_gt_saved = img_gt
+            #     iter += 1
+            #     continue
+            # else:
+            #     mask = np.concatenate((mask_saved, mask))
+            #     img = np.concatenate((img_saved, img))
+            #     img_gt = np.concatenate((img_gt_saved, img_gt))
             feed_dict = {graph['x']: img, graph['y_gt']: img_gt, graph['y']: mask}
             _, y_mean, score_diff, loss, sim_score, fc3, gradient, sim_score_vector, summary = sess.run([graph['train_optimizer'], graph['y_mean'], graph['score_diff'], graph['loss'], graph['sim_score_vector'], graph['fc3'], graph['inference_grad'], graph['sim_score_vector'], graph['merged_summary']], feed_dict=feed_dict)
             #loss, sim_score, fc3, gradient, summary = sess.run([graph['loss'], graph['sim_score'], graph['fc3'], graph['inference_grad'], graph['merged_summary']], feed_dict=feed_dict)
@@ -111,6 +122,7 @@ def test(graph, modelpath, data, data_update_rate=0.5):
             # logging.info("it i = %s, acc = %s" %(iter, acc))
             # recall = calc_recall(img_gt, pred)
             # logging.info("it i = %s, recall = %s" %(iter, recall))
+            logging.debug("img %s" % img)
             labels = pred_to_label(pred)
             mapp_pred = result_sample_mapping(img_gt, pred)
             write_image(mapp_pred, -1, data.index_list[iter])
@@ -150,7 +162,7 @@ if __name__== "__main__":
     net_params = {
         'classes': classes,
         'batch_size': BATCH_SIZE,
-        'lr': 0.01
+        'lr': 0.0001
     }
     net = DvnNet(**net_params)
     #net = DvnNet(classes=classes, batch_size=BATCH_SIZE, lr=0.0001)

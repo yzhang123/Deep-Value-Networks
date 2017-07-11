@@ -16,6 +16,7 @@ def _oracle_score(y, y_gt):
     y_min = tf.reduce_sum(tf.minimum(y, y_gt), [1, 2])
     y_max = tf.reduce_sum(tf.maximum(y, y_gt), [1, 2])
     y_divide = tf.divide(y_min, y_max)
+    #y_divide[y_max == 0.] = 1.
     result = tf.reduce_mean(y_divide, 1)
     logging.info("oracle score")
     logging.info(result)
@@ -33,11 +34,13 @@ def _oracle_score_cpu(y, y_gt):
         y_min = np.sum(np.sum(np.minimum(y, y_gt), 2), 1)
         y_max = np.sum(np.sum(np.maximum(y, y_gt), 2), 1)
         y_divide = np.divide(y_min, y_max)
+        y_divide[y_max == 0.] = 1.
         return np.mean(y_divide, 1)
     elif len(y.shape) == 3:
         y_min = np.sum(np.sum(np.minimum(y, y_gt), 1), 0)
         y_max = np.sum(np.sum(np.maximum(y, y_gt), 1), 0)
         y_divide = np.divide(y_min, y_max)
+        y_divide[y_max == 0.] = 1.
         return np.mean(y_divide)
     else:
         raise Exception("wrong input dimension %s" % y.shape)

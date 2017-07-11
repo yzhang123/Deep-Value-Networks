@@ -5,7 +5,7 @@ import numpy as np
 import random
 import logging
 
-from dvn.src.util.loss import _oracle_score_cpu
+from dvn.src.util.measures import _oracle_score_cpu
 
 
 def oneMask(shape):
@@ -92,6 +92,10 @@ def blackMask(shape):
     black_batch = np.zeros(shape, dtype=np.float32)
     black_batch[..., 0] = 1.
     return black_batch
+
+def meanMask(shape):
+    batch = 0.5 * np.ones(shape, dtype=np.float32)
+    return batch
 
 def randomMask(shape):
     batch = np.zeros(shape, dtype=np.float32)

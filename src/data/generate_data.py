@@ -4,9 +4,9 @@ from os.path import join, dirname, abspath
 import logging
 
 
-from dvn.src.util.loss import _oracle_score_cpu
-from dvn.src.util.data import randomMask, blackMask, sampleExponential, zeroMask, oneMask, left_upper_Mask, left_lower_Mask, right_upper_Mask, right_lower_Mask
-from dvn.src.util.data import left_upper1_4_mask, left_upper2_4_mask, left_upper3_4_mask, left_upper4_4_mask, left_upper2_2_mask
+from dvn.src.util.measures import _oracle_score_cpu
+from dvn.src.util.data import randomMask, blackMask, sampleExponential, zeroMask, oneMask
+from dvn.src.util.data import left_upper1_4_mask, left_upper2_4_mask, left_upper3_4_mask, left_upper2_2_mask, meanMask
 
 from dvn.src.util.model import inference as infer, adversarial as adverse
 from dvn.src.util.data import generate_random_sample
@@ -45,29 +45,20 @@ class DataGenerator(object):
         # mask4 = right_lower_Mask(shape)
         def _get_mask(img_gt):
             shape = (self.data.size[0], self.data.size[1], self.data.num_classes)
-            mask0 = img_gt
-            mask1 = left_upper2_2_mask(shape)
-            mask2 = left_upper1_4_mask(shape)
-            mask3 = randomMask(shape)
-            mask4 = zeroMask(shape)
+
+            masks = []
+            masks.append(img_gt - meanMask(shape))
+            masks.append(left_upper2_2_mask(shape) - meanMask(shape) )
+            masks.append(left_upper1_4_mask(shape) - meanMask(shape))
+            masks.append(blackMask(shape) - meanMask(shape))
+            masks.append(left_upper2_4_mask(shape) - meanMask(shape))
+            masks.append(left_upper3_4_mask(shape) - meanMask(shape))
+            #masks.append(randomMask(shape))
+
 
             #logging.debug("img_gt %s" % img_gt[0, :, :, 0])
-            idx = np.random.randint(0, 5)
-            if idx == 0:
-                print("mask: gt")
-                return mask0
-            elif idx == 1:
-                print("mask: center crop")
-                return mask1
-            elif idx == 2:
-                print("mask: left crop")
-                return mask2
-            elif idx == 3:
-                print("mask: random")
-                return mask3
-            elif idx == 4:
-                print("mask: zero")
-                return mask4
+            idx = np.random.randint(0, len(masks))
+            return masks[idx]
 
         while(True):
             img, _, img_gt = next(self.gt())
@@ -77,7 +68,8 @@ class DataGenerator(object):
                 all_masks.append(mask)
             all_masks = np.stack(all_masks, axis=0)
 
-            data = [img, all_masks, img_gt]
+            shape = (self.data.batch_size, self.data.size[0], self.data.size[1], self.data.num_classes)
+            data = [img, all_masks, img_gt - meanMask(shape)]
             yield data
 
 
@@ -139,7 +131,7 @@ if __name__=='__main__':
     from dvn.src.model.dvn import DvnNet
     from dvn.src.data.data_set import DataSet
     import tensorflow as tf
-    from dvn.src.util.loss import _oracle_score_cpu
+    from dvn.src.util.measures import _oracle_score_cpu
 
     data = DataSet(classes, img_path, img_gt_path, batch_size=1)
     generator = DataGenerator(sess=None, graph=None, data=data, train=False, data_update_rate=0)
