@@ -40,7 +40,7 @@ ITERS_PER_SAVE = 100
 # absolute path where model snapshots are saved
 SAVE_PATH = join(root_path, 'checkpoints/')
 # number of batch size of incoming data
-BATCH_SIZE = 2
+BATCH_SIZE = 1
 
 
 

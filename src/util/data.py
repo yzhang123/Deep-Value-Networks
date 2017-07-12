@@ -118,7 +118,7 @@ def label_to_colorimg(pred_labels, classes, color_map):
 
 def get_image_index_list(img_dir):
     assert os.path.exists(img_dir), "path %s doesnt exist" % img_dir
-    index = [os.path.basename(os.path.splitext(f)[0]) for f in sorted(listdir(img_dir)) if isfile(join(img_dir, f))]
+    index = [os.path.basename(os.path.splitext(f)[0]) for f in sorted(listdir(img_dir))]
     extension = os.path.splitext(listdir(img_dir)[0])[1]
     return index, extension
 

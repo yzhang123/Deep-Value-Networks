@@ -12,7 +12,7 @@ import os
 from os.path import isfile, join
 from dvn.src.util.data import get_data_tuples, color_decode, get_image_index_list
 from scipy.ndimage.filters import gaussian_filter
-
+import scipy.misc
 
 class BatchIterator(object):
 
@@ -59,10 +59,16 @@ class BatchIterator(object):
 
 class DataSet(object):
 
-    def __init__(self, classes, img_dir, gt_dir=None, batch_size=1, size=(24, 24), train=True):
+    def __init__(self, classes, img_dir, gt_dir=None, batch_size=1, size=(24, 24), train=True, repeat=None, shuffle=None):
 
         self.trainingSet = []
         self.validationSet = []
+        self.repeat = train
+        self.shuffle= train
+        if self.repeat:
+            self.repeat = repeat
+        if self.shuffle:
+            self.shuffle = shuffle
         self.testSet = []
         self.classes = classes
         self.num_classes = len(classes)
@@ -71,22 +77,25 @@ class DataSet(object):
         self.color_map = self.get_color_map()
         self.size = size
         self.batch_size = batch_size
+        # index_list is only file name without file extension
         self.index_list, self.img_ext = get_image_index_list(img_dir)
+        print(self.img_ext)
+        # data_tuples = [(absolute img path, absolute img mask path)]
         self.data_tuples = get_data_tuples(img_dir, gt_dir, self.index_list, self.img_ext)
-        self.batch_iterator = BatchIterator(self.image_iterator(self.data_tuples, repeat=train, shuffle=train), batch_size=batch_size)
+        print("repeat = %s" % self.repeat)
+        print("shuffle = %s" % self.shuffle)
+        self.batch_iterator = BatchIterator(self.image_iterator(repeat=self.repeat, shuffle=self.shuffle), batch_size=batch_size)
         #self.avg_img = gaussian_filter(self.get_avg_img(img_dir), 3)
-        self.avg_img, self.avg_mask = map(lambda x: gaussian_filter(x, 3), self.get_avg_img(img_dir))
+        #self.avg_img, self.avg_mask = map(lambda x: gaussian_filter(x, 3), self.get_avg_img(img_dir))
 
     def __iter__(self):
         return iter(self.batch_iterator)
 
 
-    def image_iterator(self, data_tuples, index_list=None, repeat=True, shuffle=True):
-        #assert isinstance(data_tuples, list), "data tuples it not list but %s " % type(data_tuples)
+    def image_iterator(self, repeat=False, shuffle=False):
         if shuffle:
-            random.shuffle(data_tuples)
-        data_iterator = iter(data_tuples)
-
+            random.shuffle(self.data_tuples)
+        data_iterator = iter(self.data_tuples)
         while True:
             try:
                 img_file, seg_file = next(data_iterator)
@@ -113,13 +122,15 @@ class DataSet(object):
                     seg = np.zeros([self.size[0], self.size[1], self.num_classes], dtype=np.float32)
                     seg[:, :, 0] = 1.
 
+                assert ((0 <= img) & (img <= 1.)).all()
+                assert ((0. == seg) | (seg == 1.)).all()
                 yield [img, seg]
 
             except StopIteration:
                 if repeat:
                     if shuffle:
-                        random.shuffle(data_tuples)
-                    data_iterator = iter(data_tuples)
+                        random.shuffle(self.data_tuples)
+                    data_iterator = iter(self.data_tuples)
                 else:
                     return
             except IOError:
