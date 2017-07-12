@@ -30,7 +30,7 @@ class SimpleDVN:
         self.target_score = tf.placeholder(tf.float32, shape=[None], name='target_score')
 
         self.concat = tf.concat([self.x, self.y], axis=3, name='x-y-concat')
-        self.fc1 = fully_connected(input=self.concat, num_outputs=20, name='fc1')
+        self.fc1 = fully_connected(input=self.concat, num_outputs=80, name='fc1')
         self.fc2 = fully_connected(input=self.fc1, num_outputs=1, name='fc2', activation_fn=tf.nn.relu)
         self.output = tf.reshape(tf.nn.sigmoid(self.fc2), [-1])
         self.loss = self.create_loss(self.output, self.target_score)
@@ -139,9 +139,9 @@ if __name__=='__main__':
 
     classes = ['__background__', 'horse']
 
-    BATCH_SIZE = 1
+    BATCH_SIZE = 10
     SIZE = (48, 48)
-    LR = 0.001
+    LR = 0.00001
     NUM_CLASSES = len(classes)
     DATA_REPEAT = True
     DATA_SHUFFLE = True
@@ -159,7 +159,7 @@ if __name__=='__main__':
             feed_dict = {net.x : imgs, net.y: input_masks, net.target_score: target_scores}
 
             _, loss, output = sess.run([net.optimizer, net.loss, net.output], feed_dict=feed_dict)
-            print("iter %s: loss = %s, output = %s" %(iter, loss, output))
+            print("iter %s: \noutput = %s, \ntarget=%s, \nloss = %s," %(iter, output, target_scores, loss))
 
             iter += 1
 
