@@ -38,8 +38,8 @@ class DvnNet(object):
             bias = self._bias_variable(filter_depth, name=name)
             conv = tf.nn.conv2d(bottom, weight, strides=strides, padding=padding)
 
-            if layer_norm:
-                norm = layer_norm(conv)
+            if layernorm:
+                norm = layernorm(conv)
                 relu = tf.nn.relu(norm + bias)
             else:
                 relu = tf.nn.relu(conv + bias)

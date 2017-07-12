@@ -4,12 +4,14 @@
 # from dvn.src.util.measures import _oracle_score_cpu
 
 import  tensorflow as tf
-from nn_toolbox.src.tf.blocks.basic_blocks import fully_connected
+from nn_toolbox.src.tf.blocks.basic_blocks import fully_connected, conv
 from dvn.src.data.data_set import DataSet
 from dvn.src.data.generate_data import DataGenerator
 from dvn.src.util.data import randomMask, blackMask, sampleExponential, zeroMask, oneMask
 from dvn.src.util.data import left_upper1_4_mask, left_upper2_4_mask, left_upper3_4_mask, left_upper2_2_mask, meanMask
 import scipy.misc
+
+from nn_toolbox.src.tf.tf_extend.tf_helpers import count_variables
 
 
 import numpy as np
@@ -22,19 +24,81 @@ class SimpleDVN:
         self.input_height = input_height
         self.input_width = input_width
         self.num_classes = num_classes
-        self.build_graph()
+        self.build_CONV()
 
-    def build_graph(self):
+    def build_FC(self):
         self.x = tf.placeholder(tf.float32, shape=[None, self.input_height, self.input_height, 3], name='x-input')
         self.y = tf.placeholder(tf.float32, shape=[None, self.input_height, self.input_width, self.num_classes], name='y-input')
         self.target_score = tf.placeholder(tf.float32, shape=[None], name='target_score')
 
         self.concat = tf.concat([self.x, self.y], axis=3, name='x-y-concat')
-        self.fc1 = fully_connected(input=self.concat, num_outputs=80, name='fc1')
+        self.fc1 = fully_connected(input=self.concat, num_outputs=200, name='fc1')
         self.fc2 = fully_connected(input=self.fc1, num_outputs=1, name='fc2', activation_fn=tf.nn.relu)
         self.output = tf.reshape(tf.nn.sigmoid(self.fc2), [-1])
         self.loss = self.create_loss(self.output, self.target_score)
         self.optimizer = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
+        print("#variables %s" % count_variables())
+
+    def build_CONV(self):
+        self.x = tf.placeholder(tf.float32, shape=[None, self.input_height, self.input_height, 3], name='x-input')
+        self.y = tf.placeholder(tf.float32, shape=[None, self.input_height, self.input_width, self.num_classes], name='y-input')
+        self.target_score = tf.placeholder(tf.float32, shape=[None], name='target_score')
+
+        self.concat = tf.concat([self.x, self.y], axis=3, name='x-y-concat')
+        self.conv1 = conv(input=self.concat, channel=24, name='conv1', filter=(7, 7), stride=1, activation_fn=None)
+        self.conv2 = conv(input=self.conv1, channel=128, name='conv2', filter=(5, 5), stride=2, activation_fn=tf.nn.relu, use_layer_norm=True)
+        self.conv3 = conv(input=self.conv2, channel=128, name='conv3', filter=(5, 5), stride=2, activation_fn=tf.nn.relu, use_layer_norm=True)
+        self.fc1 = fully_connected(input=self.conv3, num_outputs=384, name='fc1', activation_fn=tf.nn.relu, use_layer_norm=True)
+        self.fc2 = fully_connected(input=self.fc1, num_outputs=80, name='fc2', activation_fn=tf.nn.relu, use_layer_norm=True)
+        self.fc3 = fully_connected(input=self.fc2, num_outputs=1, name='fc3', activation_fn=tf.nn.relu, use_layer_norm=True)
+        self.output = tf.reshape(tf.nn.sigmoid(self.fc3), [-1])
+        self.loss = self.create_loss(self.output, self.target_score)
+        self.optimizer = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
+        print("#variables %s" % count_variables())
+
+    # def fc_acti_layer(self, bottom, weight_shape, bias_shape, name, activation_fn=tf.nn.relu, dropout=False,
+    #                   layernorm=None):
+    #     with tf.variable_scope(name):
+    #         W = self._weight_variable(weight_shape, name=name)
+    #         b = self._bias_variable(bias_shape, name=name)
+    #         preactivation = tf.matmul(bottom, W)
+    #         tf.summary.histogram('pre_norm_activations', preactivation)
+    #         if layernorm:
+    #             norm = layernorm(preactivation)
+    #             acti = activation_fn(norm + b, name=name + '_relu')
+    #         else:
+    #             acti = activation_fn(preactivation + b, name=name + '_relu')
+    #         tf.summary.histogram('activations', acti)
+    #         return acti
+    #
+    # def _weight_variable(self, shape, initializer=None, name=None):
+    #     if not initializer:
+    #         initializer = tf.contrib.layers.xavier_initializer(uniform=False)
+    #     var = tf.get_variable(name + '_weight', shape, initializer=initializer, collections=['variables'])
+    #     self.variable_summaries(var, 'weight')
+    #     # self._graph['loss'] += self.regularizer(var) * self.weight_decay
+    #     return var
+    #
+    # def _bias_variable(self, shape, initializer=None, name=None):
+    #     if not initializer:
+    #         initializer = tf.constant_initializer(0.01)
+    #     var = tf.get_variable(name + '_bias', shape, initializer=initializer, collections=['variables'])
+    #     self.variable_summaries(var, name='bias')
+    #     return var
+    #
+    # def variable_summaries(self, var, name=''):
+    #     """Attach a lot of summaries to a Tensor (for TensorBoard visualization).
+    #     """
+    #     with tf.name_scope('summaries'):
+    #         mean = tf.reduce_mean(var)
+    #         tf.summary.scalar('mean_'+ name, mean)
+    #         with tf.name_scope('stddev'):
+    #             stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
+    #         tf.summary.scalar('stddev_' + name, stddev)
+    #         tf.summary.scalar('max_'+ name, tf.reduce_max(var))
+    #         tf.summary.scalar('min_'+ name, tf.reduce_min(var))
+    #         tf.summary.histogram('histogram_'+ name, var)
+
 
 
     def create_loss(self, output, target):
@@ -82,6 +146,7 @@ class DataGenerator:
         masks.append(blackMask(shape))
         masks.append(left_upper2_4_mask(shape))
         masks.append(left_upper3_4_mask(shape))
+        masks.append(zeroMask(shape))
 
         def _get_mask(img_mask):
             rand_idx = np.random.randint(0, len(masks) + 1)
@@ -127,9 +192,9 @@ def oracle_score(masks_a, masks_b):
 
 
 if __name__=='__main__':
-    img_path = "/home/yang/data/weizmann_horse_db/rgb_1"
+    img_path = "/home/yang/data/weizmann_horse_db/rgb"
     # test_img_path = "/home/yang/data/weizmann_horse_db/rgb_1"
-    img_gt_path = "/home/yang/data/weizmann_horse_db/figure_ground_1"
+    img_gt_path = "/home/yang/data/weizmann_horse_db/figure_ground"
 
     output_img_folder = "/home/yang/projects/dvn/src/simple_dvn/output/img"
 
