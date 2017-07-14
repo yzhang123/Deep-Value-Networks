@@ -5,7 +5,7 @@ import numpy as np
 import random
 import logging
 
-from dvn.src.util.measures import _oracle_score_cpu
+from dvn.src.util.measures import oracle_score
 
 
 def oneMask(shape):
@@ -228,7 +228,7 @@ def generate_similar_image(img, iou):
 
                 logging.debug("new mask[%s][%s][%s][0] = %s" %(i, x, y, mask[i][x][y][0]))
             mask[i][x][y][1] = 1-mask[i][x][y][0]
-            mask_iou = _oracle_score_cpu(mask[i], img[i])
+            mask_iou = oracle_score(mask[i], img[i])
         logging.debug("current done")
         logging.info("generated similar mask %s " %mask)
     return mask

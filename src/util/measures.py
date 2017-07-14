@@ -4,46 +4,25 @@ import logging
 
 
 
-
-def _oracle_score(y, y_gt):
-    """
-    also referred to as v*, batch version
-    :param y: segmantation masks [0, 1] * image_size x num_classes
-    :param y_gt: ground truth segmantation mask
-    :return: relaxed IoU score between both
+def oracle_score(masks_a, masks_b):
     """
 
-    y_min = tf.reduce_sum(tf.minimum(y, y_gt), [1, 2])
-    y_max = tf.reduce_sum(tf.maximum(y, y_gt), [1, 2])
-    y_divide = tf.divide(y_min, y_max)
-    #y_divide[y_max == 0.] = 1.
-    result = tf.reduce_mean(y_divide, 1)
-    logging.info("oracle score")
-    logging.info(result)
-    return result
-
-
-def _oracle_score_cpu(y, y_gt):
+    :param masks_a: batch
+    :param masks_b: batch
+    :return: batches of relaxed iou scores, 1-d tensor
     """
-    also referred to as v*
-    :param y: segmantation masks [0, 1] * image_size x num_classes
-    :param y_gt: ground truth segmantation mask
-    :return: relaxed IoU score between both
-    """
-    if len(y.shape) == 4:
-        y_min = np.sum(np.sum(np.minimum(y, y_gt), 2), 1)
-        y_max = np.sum(np.sum(np.maximum(y, y_gt), 2), 1)
-        y_divide = np.divide(y_min, y_max)
-        y_divide[y_max == 0.] = 1.
-        return np.mean(y_divide, 1)
-    elif len(y.shape) == 3:
-        y_min = np.sum(np.sum(np.minimum(y, y_gt), 1), 0)
-        y_max = np.sum(np.sum(np.maximum(y, y_gt), 1), 0)
-        y_divide = np.divide(y_min, y_max)
-        y_divide[y_max == 0.] = 1.
-        return np.mean(y_divide)
-    else:
-        raise Exception("wrong input dimension %s" % y.shape)
+    assert masks_a.shape == masks_b.shape
+    assert len(masks_a.shape) == 4
+    y_min = np.sum(np.sum(np.minimum(masks_a, masks_b), 2), 1)
+    y_max = np.sum(np.sum(np.maximum(masks_a, masks_b), 2), 1)
+    y_divide = np.divide(y_min, y_max)
+    y_divide[y_max == 0.] = 1.
+
+    scores = np.mean(y_divide, 1)
+    assert scores.shape[0] == masks_a.shape[0], "target_score.shape: %s, masks.shape: %s" % (
+    scores.shape, masks_a.shape)
+    return scores
+
 
 def calc_accuracy(img_reference, img_pred):
     ref_labels = np.argmax(img_reference, axis=-1)

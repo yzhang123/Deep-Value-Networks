@@ -59,7 +59,7 @@ class BatchIterator(object):
 
 class DataSet(object):
 
-    def __init__(self, classes, img_dir, gt_dir=None, batch_size=1, size=(24, 24), train=True, repeat=None, shuffle=None):
+    def __init__(self, classes, img_dir, gt_dir=None, batch_size=1, size=(0, 0), train=True, repeat=None, shuffle=None):
 
         self.trainingSet = []
         self.validationSet = []
@@ -75,7 +75,8 @@ class DataSet(object):
         self.img_dir = img_dir
         self.gt_dir = gt_dir
         self.color_map = self.get_color_map()
-        self.size = size
+        self.height = size[0]
+        self.width = size[1]
         self.batch_size = batch_size
         # index_list is only file name without file extension
         self.index_list, self.img_ext = get_image_index_list(img_dir)
@@ -100,8 +101,8 @@ class DataSet(object):
             try:
                 img_file, seg_file = next(data_iterator)
                 img = Image.open(img_file)
-                if img.size != self.size:
-                    img = img.resize(self.size, resample=Image.BILINEAR)
+                if img.size != (self.height, self.width):
+                    img = img.resize((self.height, self.width), resample=Image.BILINEAR)
                 if img.mode != "RGB":
                     img = img.convert("RGB")
                 img = np.asarray(img, dtype=np.uint8)# - self.mean_pixel
@@ -111,15 +112,15 @@ class DataSet(object):
                     seg = Image.open(seg_file)
                     if seg.mode != "RGB":
                         seg = seg.convert("RGB")
-                    if seg.size != self.size:
-                        seg = seg.resize(self.size, resample=Image.NEAREST)
+                    if seg.size != (self.height, self.width):
+                        seg = seg.resize((self.height, self.width), resample=Image.NEAREST)
 
                     #if img.size != seg.size:
                     #    raise OverflowError('Image and label size do not match %s != %s ' %(img.size, seg.size))
                     seg = np.array(seg, dtype=np.uint8)
                     seg = color_decode(seg, self.classes, self.color_map)
                 else:
-                    seg = np.zeros([self.size[0], self.size[1], self.num_classes], dtype=np.float32)
+                    seg = np.zeros([self.height, self.width, self.num_classes], dtype=np.float32)
                     seg[:, :, 0] = 1.
 
                 assert ((0 <= img) & (img <= 1.)).all()
@@ -145,15 +146,15 @@ class DataSet(object):
 
 
     def get_avg_img(self, img_dir):
-        avg_img = np.zeros([self.size[0], self.size[1], 3], np.uint8)
-        avg_mask = np.zeros([self.size[0], self.size[1], 3], np.uint8)
+        avg_img = np.zeros([self.height, self.width, 3], np.uint8)
+        avg_mask = np.zeros([self.height, self.width, 3], np.uint8)
         for f1, f2 in self.data_tuples:
             img = Image.open(f1)
             mask = Image.open(f2)
             img = img.convert("RGB")
             mask = mask.convert("RGB")
-            img = img.resize(self.size, resample=Image.BILINEAR)
-            mask = mask.resize(self.size, resample=Image.NEAREST)
+            img = img.resize((self.height, self.width), resample=Image.BILINEAR)
+            mask = mask.resize((self.height, self.width), resample=Image.NEAREST)
             img = np.asarray(img, dtype=np.uint8)
             mask = np.asarray(mask, dtype=np.uint8)
             avg_img += img

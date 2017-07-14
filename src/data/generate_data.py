@@ -4,27 +4,25 @@ from os.path import join, dirname, abspath
 import logging
 
 
-from dvn.src.util.measures import _oracle_score_cpu
+from dvn.src.util.measures import oracle_score
 from dvn.src.util.data import randomMask, blackMask, sampleExponential, zeroMask, oneMask
-from dvn.src.util.data import left_upper1_4_mask, left_upper2_4_mask, left_upper3_4_mask, left_upper2_2_mask, meanMask
+from dvn.src.util.data import left_upper1_4_mask, left_upper2_4_mask, left_upper3_4_mask, left_upper2_2_mask
 
 from dvn.src.util.model import inference as infer, adversarial as adverse
 from dvn.src.util.data import generate_random_sample
 
-from nn_toolbox.src.datasets.iterators import BatchIterator
 
 
 
 module_path = abspath(__file__)
 dir_path = dirname(module_path)
 root_path = join(dir_path, "../../")
-SAVE_PATH = join(root_path, 'checkpoints/')
 
 class DataGenerator(object):
 
-    def __init__(self, sess, graph, data, train, data_update_rate):
+    def __init__(self, sess, net, data, train, data_update_rate):
         self.sess = sess
-        self.graph = graph
+        self.graph = net
         self.data = data # (img, img_gt)
         self.data_update_rate = data_update_rate
         self.generators = [self.generate_examples(train=train)]
@@ -32,49 +30,47 @@ class DataGenerator(object):
     def generate(self):
         while True:
             yield next(random.choice(self.generators))
-            #yield next(self.gt())
 
     def gt(self):
-        for img, img_gt in self.data:
-            logging.info("gt")
-            yield img, img_gt, img_gt
+        return self.data.__iter__()
 
 
-    def helper(self):
+    def generate_batch(self):
+        """
 
-        # mask4 = right_lower_Mask(shape)
-        def _get_mask(img_gt):
-            shape = (self.data.size[0], self.data.size[1], self.data.num_classes)
+        :return: images, input masks, and according ground truth masks as batches
+        """
+        shape = (self.data.height, self.data.width, self.data.num_classes)
+        masks = list()
+        masks.append(left_upper2_2_mask(shape))
+        masks.append(left_upper1_4_mask(shape))
+        masks.append(blackMask(shape))
+        masks.append(left_upper2_4_mask(shape))
+        masks.append(left_upper3_4_mask(shape))
+        masks.append(zeroMask(shape))
 
-            masks = []
-            masks.append(img_gt - meanMask(shape))
-            masks.append(left_upper2_2_mask(shape) - meanMask(shape) )
-            masks.append(left_upper1_4_mask(shape) - meanMask(shape))
-            masks.append(blackMask(shape) - meanMask(shape))
-            masks.append(left_upper2_4_mask(shape) - meanMask(shape))
-            masks.append(left_upper3_4_mask(shape) - meanMask(shape))
-            #masks.append(randomMask(shape))
-
-
-            #logging.debug("img_gt %s" % img_gt[0, :, :, 0])
-            idx = np.random.randint(0, len(masks))
-            return masks[idx]
+        def _get_mask(img_mask):
+            rand_idx = np.random.randint(0, len(masks) + 1)
+            logging.info("mask %s" %rand_idx)
+            if rand_idx < len(masks):
+                return masks[rand_idx]
+            else:
+                return img_mask
 
         while(True):
-            img, _, img_gt = next(self.gt())
-            all_masks = []
-            for i in range(img_gt.shape[0]):
-                mask = _get_mask(img_gt[i])
-                all_masks.append(mask)
-            all_masks = np.stack(all_masks, axis=0)
+            imgs, img_masks = next(self.gt())
+            input_masks = list()
+            for i in range(img_masks.shape[0]):
+                mask = _get_mask(img_masks[i])
+                input_masks.append(mask)
 
-            shape = (self.data.batch_size, self.data.size[0], self.data.size[1], self.data.num_classes)
-            data = [img, all_masks, img_gt - meanMask(shape)]
-            yield data
+            input_masks = np.stack(input_masks, axis=0)
 
+            assert imgs.shape > input_masks.shape, "imgs.shape : %s, input_masks.shape : %s" % (
+            imgs.shape, input_masks.shape)
+            assert img_masks.shape == input_masks.shape
 
-
-
+            yield imgs, input_masks, img_masks
 
 
     def generate_examples(self, train=False):
@@ -134,7 +130,7 @@ if __name__=='__main__':
     from dvn.src.util.measures import _oracle_score_cpu
 
     data = DataSet(classes, img_path, img_gt_path, batch_size=1)
-    generator = DataGenerator(sess=None, graph=None, data=data, train=False, data_update_rate=0)
+    generator = DataGenerator(sess=None, net=None, data=data, train=False, data_update_rate=0)
     for img, mask, img_gt in generator.helper():
         print("mask shape ")
         print( mask.shape)

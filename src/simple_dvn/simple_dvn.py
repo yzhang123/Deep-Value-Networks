@@ -56,49 +56,6 @@ class SimpleDVN:
         self.optimizer = tf.train.AdamOptimizer(self.lr).minimize(self.loss)
         print("#variables %s" % count_variables())
 
-    # def fc_acti_layer(self, bottom, weight_shape, bias_shape, name, activation_fn=tf.nn.relu, dropout=False,
-    #                   layernorm=None):
-    #     with tf.variable_scope(name):
-    #         W = self._weight_variable(weight_shape, name=name)
-    #         b = self._bias_variable(bias_shape, name=name)
-    #         preactivation = tf.matmul(bottom, W)
-    #         tf.summary.histogram('pre_norm_activations', preactivation)
-    #         if layernorm:
-    #             norm = layernorm(preactivation)
-    #             acti = activation_fn(norm + b, name=name + '_relu')
-    #         else:
-    #             acti = activation_fn(preactivation + b, name=name + '_relu')
-    #         tf.summary.histogram('activations', acti)
-    #         return acti
-    #
-    # def _weight_variable(self, shape, initializer=None, name=None):
-    #     if not initializer:
-    #         initializer = tf.contrib.layers.xavier_initializer(uniform=False)
-    #     var = tf.get_variable(name + '_weight', shape, initializer=initializer, collections=['variables'])
-    #     self.variable_summaries(var, 'weight')
-    #     # self._graph['loss'] += self.regularizer(var) * self.weight_decay
-    #     return var
-    #
-    # def _bias_variable(self, shape, initializer=None, name=None):
-    #     if not initializer:
-    #         initializer = tf.constant_initializer(0.01)
-    #     var = tf.get_variable(name + '_bias', shape, initializer=initializer, collections=['variables'])
-    #     self.variable_summaries(var, name='bias')
-    #     return var
-    #
-    # def variable_summaries(self, var, name=''):
-    #     """Attach a lot of summaries to a Tensor (for TensorBoard visualization).
-    #     """
-    #     with tf.name_scope('summaries'):
-    #         mean = tf.reduce_mean(var)
-    #         tf.summary.scalar('mean_'+ name, mean)
-    #         with tf.name_scope('stddev'):
-    #             stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-    #         tf.summary.scalar('stddev_' + name, stddev)
-    #         tf.summary.scalar('max_'+ name, tf.reduce_max(var))
-    #         tf.summary.scalar('min_'+ name, tf.reduce_min(var))
-    #         tf.summary.histogram('histogram_'+ name, var)
-
 
 
     def create_loss(self, output, target):
