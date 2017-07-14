@@ -82,14 +82,14 @@ def train(net, data, data_update_rate, model_dir=model_dir, tensorboard_dir=tens
         train_writer.close()
 
 
-def test(net, data, data_update_rate=10, model_dir=model_dir, tensorboard_dir=tensorboard_dir):
+def test(net, data, modelpath, data_update_rate, tensorboard_dir=tensorboard_dir):
     with tf.Session() as sess:
 
         tf.global_variables_initializer().run()
         #saver = tf.train.import_meta_graph(modelpath + '.meta')
         #saver.restore(sess, tf.train.latest_checkpoint(os.path.dirname(modelpath)))
         saver = tf.train.Saver()
-        saver.restore(sess, model_dir)
+        saver.restore(sess, modelpath)
 
         writer = tf.summary.FileWriter(tensorboard_dir + '/test', sess.graph)
         generator = DataGenerator(sess, net, data, train=False, data_update_rate=data_update_rate)
@@ -181,7 +181,7 @@ if __name__== "__main__":
     else:
         net.build_network(train=False)
         data = DataSet(classes=classes, img_dir=img_path, gt_dir=img_gt_path, batch_size=1, size=SIZE, train=False, repeat=False, shuffle=False)
-        modelpath = '/home/yang/projects/dvn/checkpoints/model-1000'
+        modelpath = join(model_dir, 'model-1000')
         logging.debug("data tuples")
         logging.debug(data.data_tuples)
 
@@ -189,7 +189,7 @@ if __name__== "__main__":
             'net': net,
             'data': data,
             'data_update_rate': data_update_rate,
-            'model_dir' : modelpath,
+            'modelpath' : modelpath,
             'tensorboard_dir': args.tensorboard_dir
         }
         test(**test_params)

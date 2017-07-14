@@ -1,3 +1,7 @@
 *.pyc
 log*
 doc/
+checkpoints*
+.cache
+output
+tensorboard*
