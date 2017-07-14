@@ -83,8 +83,6 @@ class DataSet(object):
         print(self.img_ext)
         # data_tuples = [(absolute img path, absolute img mask path)]
         self.data_tuples = get_data_tuples(img_dir, gt_dir, self.index_list, self.img_ext)
-        print("repeat = %s" % self.repeat)
-        print("shuffle = %s" % self.shuffle)
         self.batch_iterator = BatchIterator(self.image_iterator(repeat=self.repeat, shuffle=self.shuffle), batch_size=batch_size)
         #self.avg_img = gaussian_filter(self.get_avg_img(img_dir), 3)
         #self.avg_img, self.avg_mask = map(lambda x: gaussian_filter(x, 3), self.get_avg_img(img_dir))

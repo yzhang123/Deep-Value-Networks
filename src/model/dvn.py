@@ -12,7 +12,7 @@ import logging
 from tensorflow.contrib.layers import layer_norm
 from nn_toolbox.src.tf.tf_extend.tf_helpers import count_variables
 from nn_toolbox.src.tf.tf_extend.metrics import r_squared
-from nn_toolbox.src.tf.blocks.basic_blocks import fully_connected, batch_renorm, get_bias_value, apply_dropout, sparse_drop_mask, layer_norm
+from nn_toolbox.src.tf.blocks.basic_blocks import batch_renorm, get_bias_value, apply_dropout, sparse_drop_mask, layer_norm
 from tensorflow.contrib.layers import flatten
 
 
@@ -221,7 +221,7 @@ class DvnNet(object):
         var = tf.get_variable(name=name, dtype=datatype, initializer=initializer, regularizer=None, trainable=True,
                               collections=['variables'], caching_device=None, partitioner=None, validate_shape=True,
                               custom_getter=None)
-        self.variable_summaries(var=var, name='weight')
+        self.variable_summaries(var=var, name='bias')
 
         return var
 
@@ -240,12 +240,14 @@ class DvnNet(object):
 
         tf.summary.scalar('output_mean', tf.reduce_mean(output))
 
-        self.score_diff = tf.subtract(target, output)
-        tf.summary.scalar('mean_target-output', tf.reduce_mean(self.score_diff))
+        self.score_diff = tf.abs(tf.subtract(target, output))
+        self.variable_summaries(name='abs_target-output', var=self.score_diff)
+        #tf.summary.scalar('abs_target-output', tf.reduce_mean(self.score_diff))
         tf.summary.scalar('r_squared', r_squared(targets=target, logits=output))
 
         #loss = -output * tf.log(target) - (1-output) * tf.log(1-target)
         loss = tf.square(tf.subtract(output, target))
+        #loss = tf.abs(tf.subtract(output, target)))
 
         if len(output_shape) != 1: #1-d is batch dimension
             raise Exception("input parameters length os %s is unexpected" % output_shape)
@@ -294,9 +296,14 @@ class DvnNet(object):
         with tf.variable_scope('conv3'):
             self.conv3 = self.conv(input=self.conv2, num_outputs=128, name='conv3', filter=(5,5), stride=2, activation_fn=tf.nn.relu, use_layer_norm=True)
 
-        self.fc1 = fully_connected(input=self.conv3, num_outputs=384, name='fc1', activation_fn=tf.nn.relu, use_layer_norm=True)
-        self.fc2 = fully_connected(input=self.fc1, num_outputs=80, name='fc2', activation_fn=tf.nn.relu, use_layer_norm=True)
-        self.fc3 = fully_connected(input=self.fc2, num_outputs=1, name='fc3', activation_fn=tf.nn.sigmoid, use_layer_norm=False)
+        with tf.variable_scope('fc1'):
+            self.fc1 = self.fully_connected(input=self.conv3, num_outputs=384, name='fc1', activation_fn=tf.nn.relu, use_layer_norm=True)
+
+        with tf.variable_scope('fc2'):
+            self.fc2 = self.fully_connected(input=self.fc1, num_outputs=80, name='fc2', activation_fn=tf.nn.relu, use_layer_norm=True)
+
+        with tf.variable_scope('fc3'):
+            self.fc3 = self.fully_connected(input=self.fc2, num_outputs=1, name='fc3', activation_fn=tf.nn.sigmoid, use_layer_norm=False)
         self.output = tf.reshape(self.fc3, [-1])
 
         with tf.variable_scope('loss'):

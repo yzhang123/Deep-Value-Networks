@@ -43,9 +43,11 @@ ITERS_PER_SAVE = 100
 
 
 
-def train(net, data, data_update_rate):
+def train(net, data, data_update_rate, model_dir=model_dir, tensorboard_dir=tensorboard_dir):
     saver = tf.train.Saver()
-    with tf.Session() as sess:
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    with tf.Session(config=config) as sess:
         tf.global_variables_initializer().run()
         ckpt = tf.train.get_checkpoint_state(model_dir)
         if ckpt and ckpt.model_checkpoint_path:
@@ -80,7 +82,7 @@ def train(net, data, data_update_rate):
         train_writer.close()
 
 
-def test(net, data, data_update_rate=10, model_dir=model_dir):
+def test(net, data, data_update_rate=10, model_dir=model_dir, tensorboard_dir=tensorboard_dir):
     with tf.Session() as sess:
 
         tf.global_variables_initializer().run()
@@ -110,10 +112,19 @@ def test(net, data, data_update_rate=10, model_dir=model_dir):
             logging.info("iter %s: \noutputs = %s, \ntargets=%s, \nscore_diff=%s, \nloss = %s," %(iter, outputs, target_scores, score_diffs, loss))
             iter += 1
 
+
+img_path = join(root_path, "data/weizmann_horse_db/rgb")
+img_gt_path = join(root_path, "data/weizmann_horse_db/figure_ground")
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--train', action='store_true')
+    parser.add_argument('--data', default=img_path)
+    parser.add_argument('--data_gt', default=img_gt_path)
     parser.add_argument('--loglevel', default='info')
+    parser.add_argument('--model_dir', default=model_dir)
+    parser.add_argument('--tensorboard_dir', default=tensorboard_dir)
+    parser.add_argument('--log_path', default=dir_path + '/log')
     args = parser.parse_args()
     return args
 
@@ -122,20 +133,21 @@ def parse_args():
 if __name__== "__main__":
 
     args = parse_args()
+    logging.info(args)
 
     numeric_level = getattr(logging, args.loglevel.upper(), None)
     if not isinstance(numeric_level, int):
         raise ValueError('Invalid log level: %s' % args.loglevel)
 
-    logging.basicConfig(filename=dir_path + '/log', format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
+    logging.basicConfig(filename=args.log_path, format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
     #logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
 
-    img_path = join(root_path, "data/weizmann_horse_db/rgb")
-    test_img_path = join(root_path, "data/weizmann_horse_db/rgb")
-    img_gt_path = join(root_path, "data/weizmann_horse_db/figure_ground")
-    logging.info("imgs_dir %s" % img_path)
-    logging.info("masks_gt_dir %s" % img_gt_path)
 
+    logging.info("imgs_dir %s" % args.data)
+    logging.info("masks_gt_dir %s" % args.data_gt)
+
+    img_path=args.data
+    img_gt_path=args.data_gt
     classes = ['__background__', 'horse']
     BATCH_SIZE = 10
     SIZE = (48, 48)
@@ -144,21 +156,42 @@ if __name__== "__main__":
         'input_height': SIZE[0],
         'input_width': SIZE[1],
         'num_classes': 2,
-        'learning_rate': 0.00001
+        'learning_rate': 0.0001
     }
 
     net = DvnNet(**net_params)
 
     data_update_rate = 10
 
+
+
     if args.train:
         net.build_network(train=True)
-        train_data = DataSet(classes=classes, img_dir=img_path, gt_dir=img_gt_path, batch_size=BATCH_SIZE, size=SIZE, train=True, repeat=True, shuffle=True)
-        train(net=net, data=train_data, data_update_rate = data_update_rate)
+        data = DataSet(classes=classes, img_dir=img_path, gt_dir=img_gt_path, batch_size=BATCH_SIZE, size=SIZE, train=True, repeat=True, shuffle=True)
+        train_params = {
+            'net': net,
+            'data': data,
+            'data_update_rate': data_update_rate,
+            'model_dir' : args.model_dir,
+            'tensorboard_dir': args.tensorboard_dir
+        }
+        print('model_dir %s'%args.model_dir)
+        print('tensorboard_dir %s'%args.tensorboard_dir)
+        train(**train_params)
     else:
         net.build_network(train=False)
-        test_data = DataSet(classes=classes, img_dir=test_img_path, gt_dir=img_gt_path, batch_size=1, size=SIZE, train=False, repeat=False, shuffle=False)
-        modelpath = '/home/yang/projects/dvn/checkpoints/model-500'
-        test(net=net, model_dir=modelpath, data=test_data, data_update_rate=data_update_rate)
+        data = DataSet(classes=classes, img_dir=img_path, gt_dir=img_gt_path, batch_size=1, size=SIZE, train=False, repeat=False, shuffle=False)
+        modelpath = '/home/yang/projects/dvn/checkpoints/model-1000'
+        logging.debug("data tuples")
+        logging.debug(data.data_tuples)
+
+        test_params = {
+            'net': net,
+            'data': data,
+            'data_update_rate': data_update_rate,
+            'model_dir' : modelpath,
+            'tensorboard_dir': args.tensorboard_dir
+        }
+        test(**test_params)
 
 
