@@ -133,8 +133,7 @@ def parse_args():
 if __name__== "__main__":
 
     args = parse_args()
-    logging.info(args)
-
+    print(args)
     numeric_level = getattr(logging, args.loglevel.upper(), None)
     if not isinstance(numeric_level, int):
         raise ValueError('Invalid log level: %s' % args.loglevel)
@@ -142,7 +141,7 @@ if __name__== "__main__":
     logging.basicConfig(filename=args.log_path, format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
     #logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
 
-
+    logging.info(args)
     logging.info("imgs_dir %s" % args.data)
     logging.info("masks_gt_dir %s" % args.data_gt)
 
