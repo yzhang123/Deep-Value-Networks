@@ -64,10 +64,11 @@ class DataSet(object):
         self.trainingSet = []
         self.validationSet = []
         self.repeat = train
-        self.shuffle= train
-        if self.repeat:
+        self.shuffle = train
+
+        if repeat is not None:
             self.repeat = repeat
-        if self.shuffle:
+        if shuffle is not None:
             self.shuffle = shuffle
         self.testSet = []
         self.classes = classes
@@ -92,6 +93,7 @@ class DataSet(object):
 
 
     def image_iterator(self, repeat=False, shuffle=False):
+        print('repeat %s' % repeat)
         if shuffle:
             random.shuffle(self.data_tuples)
         data_iterator = iter(self.data_tuples)
@@ -127,6 +129,7 @@ class DataSet(object):
 
             except StopIteration:
                 if repeat:
+
                     if shuffle:
                         random.shuffle(self.data_tuples)
                     data_iterator = iter(self.data_tuples)

@@ -272,7 +272,7 @@ class DvnNet(object):
 
 
 
-    def build_network(self, train=True):
+    def build_network(self):
 
         self.loss = 0
         self.global_step = tf.Variable(0, dtype=tf.int32, trainable=False, name='global_step')
