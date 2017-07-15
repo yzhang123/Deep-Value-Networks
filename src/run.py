@@ -154,9 +154,8 @@ if __name__== "__main__":
     logging.basicConfig(filename=args.log_path, format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
     #logging.basicConfig(format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p', level=numeric_level)
 
+    logging.info('script parameters')
     logging.info(args)
-    logging.info("imgs_dir %s" % args.data)
-    logging.info("masks_gt_dir %s" % args.data_gt)
 
     img_path=args.data
     img_gt_path=args.data_gt
@@ -170,7 +169,8 @@ if __name__== "__main__":
         'num_classes': 2,
         'learning_rate': 0.0001
     }
-
+    logging.info('net parameters')
+    logging.info(net_params)
     net = DvnNet(**net_params)
 
     data_update_rate = 10
@@ -185,11 +185,11 @@ if __name__== "__main__":
             'model_dir' : args.model_dir,
             'tensorboard_dir': args.tensorboard_dir
         }
-        print('model_dir %s'%args.model_dir)
-        print('tensorboard_dir %s'%args.tensorboard_dir)
+        logging.info('training parameters')
+        logging.info(train_params)
         train(**train_params)
     else:
-        data = DataSet(classes=classes, img_dir=img_path, gt_dir=img_gt_path, batch_size=10, size=SIZE, train=False, repeat=True, shuffle=False)
+        data = DataSet(classes=classes, img_dir=img_path, gt_dir=img_gt_path, batch_size=10, size=SIZE, train=False, repeat=False, shuffle=False)
 
         if args.model:
             modelpath = args.model
@@ -202,8 +202,8 @@ if __name__== "__main__":
         else:
             raise Exception('no model specified')
 
-        logging.debug("data tuples")
-        logging.debug(data.data_tuples)
+        # logging.debug("data tuples")
+        # logging.debug(data.data_tuples)
 
         test_params = {
             'net': net,
@@ -212,6 +212,8 @@ if __name__== "__main__":
             'modelpath' : modelpath,
             'tensorboard_dir': args.tensorboard_dir
         }
+        logging.info('test parameters')
+        logging.info(test_params)
         test(**test_params)
 
 

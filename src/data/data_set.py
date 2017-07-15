@@ -13,6 +13,7 @@ from os.path import isfile, join
 from dvn.src.util.data import get_data_tuples, color_decode, get_image_index_list
 from scipy.ndimage.filters import gaussian_filter
 import scipy.misc
+import logging
 
 class BatchIterator(object):
 
@@ -59,7 +60,7 @@ class BatchIterator(object):
 
 class DataSet(object):
 
-    def __init__(self, classes, img_dir, gt_dir=None, batch_size=1, size=(0, 0), train=True, repeat=None, shuffle=None):
+    def __init__(self, classes, img_dir, gt_dir=None, batch_size=1, size=(0, 0), train=False, repeat=None, shuffle=None):
 
         self.trainingSet = []
         self.validationSet = []
@@ -70,6 +71,9 @@ class DataSet(object):
             self.repeat = repeat
         if shuffle is not None:
             self.shuffle = shuffle
+
+        logging.info('repeat: %s' %self.repeat)
+        logging.info('shuffle: %s' %self.shuffle)
         self.testSet = []
         self.classes = classes
         self.num_classes = len(classes)
@@ -81,7 +85,7 @@ class DataSet(object):
         self.batch_size = batch_size
         # index_list is only file name without file extension
         self.index_list, self.img_ext = get_image_index_list(img_dir)
-        print(self.img_ext)
+        logging.info('img extension %s' %self.img_ext)
         # data_tuples = [(absolute img path, absolute img mask path)]
         self.data_tuples = get_data_tuples(img_dir, gt_dir, self.index_list, self.img_ext)
         self.batch_iterator = BatchIterator(self.image_iterator(repeat=self.repeat, shuffle=self.shuffle), batch_size=batch_size)
@@ -93,7 +97,6 @@ class DataSet(object):
 
 
     def image_iterator(self, repeat=False, shuffle=False):
-        print('repeat %s' % repeat)
         if shuffle:
             random.shuffle(self.data_tuples)
         data_iterator = iter(self.data_tuples)
