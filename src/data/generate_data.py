@@ -85,7 +85,7 @@ class DataGenerator(object):
                     gt_indices = np.random.rand(mask_gt.shape[0]) > 0.5
                     init_mask[gt_indices] = mask_gt[gt_indices].copy()
                     pred_mask = adverse(session=self.session, net=self.net, img=img, init_mask=init_mask,
-                                        mask_gt=mask_gt, data_update_rate=self.data_update_rate, train=train, iterations=20)
+                                        mask_gt=mask_gt, data_update_rate=self.data_update_rate, train=train, iterations=3)
                 elif rand > 0.20:
                     logging.info("inference")
                     pred_mask = infer(session=self.session, net=self.net, img=img, init_mask=init_mask,
