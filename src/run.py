@@ -62,7 +62,7 @@ def train(net, data, data_update_rate, model_dir, tensorboard_dir):
         # np.save('arrays/x.npy', x)
         # np.save('arrays/y.npy', gt)
 
-        np.set_printoptions(formatter={'all': lambda x: str(x) + '\n'})
+        #np.set_printoptions(formatter={'all': lambda x: str(x) + '\n'})
 
         iter = initial_step = net.global_step.eval()
         for imgs, input_masks, img_masks in generator.generate_batch(train=True):
@@ -95,14 +95,14 @@ def test(net, data, modelpath, data_update_rate, tensorboard_dir):
         print('loading model %s' % modelpath)
         load_model(session=sess, path_model=modelpath)
 
-        generator = DataGenerator(sess, net, data, train=False, data_update_rate=data_update_rate)
+        generator = DataGenerator(sess, net, data, train=False, data_update_rate=100)
 
         writer = tf.summary.FileWriter(tensorboard_dir + '/test', sess.graph)
 
         np.set_printoptions(formatter={'all': lambda x: str(x) + '\n'})
 
         iter = 0
-        for imgs, input_masks, img_masks in generator.generate_batch():
+        for imgs, input_masks, img_masks in generator.generate_batch(train=False):
 
             # target_scores = oracle_score(input_masks, img_masks)
             # feed_dict = {net.x : imgs, net.y: input_masks, net.target_score: target_scores}
@@ -187,7 +187,7 @@ if __name__== "__main__":
         logging.info(train_params)
         train(**train_params)
     else:
-        data = DataSet(classes=classes, img_dir=img_path, gt_dir=img_gt_path, batch_size=10, size=SIZE, train=False, repeat=False, shuffle=False)
+        data = DataSet(classes=classes, img_dir=img_path, gt_dir=img_gt_path, batch_size=1, size=SIZE, train=False, repeat=False, shuffle=False)
 
         if args.model:
             modelpath = args.model

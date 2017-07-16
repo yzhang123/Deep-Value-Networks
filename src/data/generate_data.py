@@ -80,37 +80,40 @@ class DataGenerator(object):
             init_mask = self.get_initialization(shape)
             rand = np.random.rand()
             if train:
-                if rand > 0.5:
-                    logging.info("adverse")
-                    gt_indices = np.random.rand(mask_gt.shape[0]) > 0.5
-                    init_mask[gt_indices] = mask_gt[gt_indices].copy()
-                    pred_mask = adverse(session=self.session, net=self.net, img=img, init_mask=init_mask,
-                                        mask_gt=mask_gt, data_update_rate=self.data_update_rate, train=train, iterations=3)
-                elif rand > 0.20:
-                    logging.info("inference")
-                    pred_mask = infer(session=self.session, net=self.net, img=img, init_mask=init_mask,
-                                      data_update_rate=self.data_update_rate, train=train, iterations=20)
-                elif rand > 0.1:
-                    logging.info("rand")
-                    teta = 0.05
-                    pred_mask = generate_random_sample(shape, teta, mask_gt)
-
-
+                if rand > 0.7:
+                    logging.info("gt")
+                    pred_mask = mask_gt
+                    # gt_indices = np.random.rand(mask_gt.shape[0]) > 0.5
+                    # init_mask[gt_indices] = mask_gt[gt_indices].copy()
+                    # pred_mask = adverse(session=self.session, net=self.net, img=img, init_mask=init_mask,
+                    #                     mask_gt=mask_gt, data_update_rate=self.data_update_rate, train=train, iterations=3)
                 else:
-                    logging.info("inference + gt")
+                    logging.info("inference")
+                    # pred_mask = infer(session=self.session, net=self.net, img=img, init_mask=init_mask,
+                    #                   data_update_rate=self.data_update_rate, train=train, iterations=20)
                     pred_mask = infer(session=self.session, net=self.net, img=img, init_mask=init_mask,
-                                      data_update_rate=self.data_update_rate, train=train, iterations=20)
-                    number_elements = len(np.reshape(pred_mask, -1))
-                    rand_positions = np.random.choice(number_elements, int(0.5 * number_elements))
-                    for pos in rand_positions:
-                        idx3 = pos % self.data.num_classes
-                        pos  = pos // self.data.num_classes
-                        idx2 = pos % self.data.width
-                        pos  = pos // self.data.width
-                        idx1 = pos % self.data.height
-                        pos  = pos // self.data.height
-                        idx0 = pos % self.data.batch_size
-                        pred_mask[idx0][idx1][idx2][idx3] = mask_gt[idx0][idx1][idx2][idx3]
+                                      data_update_rate=100, train=train, iterations=100)
+                # elif rand > 0.1:
+                #     logging.info("rand")
+                #     teta = 0.05
+                #     pred_mask = generate_random_sample(shape, teta, mask_gt)
+                #
+                #
+                # else:
+                #     logging.info("inference + gt")
+                #     pred_mask = infer(session=self.session, net=self.net, img=img, init_mask=init_mask,
+                #                       data_update_rate=self.data_update_rate, train=train, iterations=20)
+                #     number_elements = len(np.reshape(pred_mask, -1))
+                #     rand_positions = np.random.choice(number_elements, int(0.5 * number_elements))
+                #     for pos in rand_positions:
+                #         idx3 = pos % self.data.num_classes
+                #         pos  = pos // self.data.num_classes
+                #         idx2 = pos % self.data.width
+                #         pos  = pos // self.data.width
+                #         idx1 = pos % self.data.height
+                #         pos  = pos // self.data.height
+                #         idx0 = pos % self.data.batch_size
+                #         pred_mask[idx0][idx1][idx2][idx3] = mask_gt[idx0][idx1][idx2][idx3]
 
                     # logging.info("adverse + gt")
                     # gt_indices = np.random.rand(mask_gt.shape[0]) > 0.5
@@ -132,12 +135,12 @@ class DataGenerator(object):
             else:
                 logging.info("inference")
                 pred_mask = infer(session=self.session, net=self.net, img=img, init_mask=init_mask,
-                                  data_update_rate=self.data_update_rate, train=train, iterations=20)
+                                  data_update_rate=self.data_update_rate, train=train, iterations=100)
             yield img, pred_mask, mask_gt
             # yield img, init_mask, mask_gt
 
     def get_initialization(self, shape):
-        black_batch = zeroMask(shape)
+        black_batch = blackMask(shape)
         return black_batch
 
 
