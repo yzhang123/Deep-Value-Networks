@@ -12,15 +12,24 @@ def oracle_score(masks_a, masks_b):
     :return: batches of relaxed iou scores, 1-d tensor
     """
     assert masks_a.shape == masks_b.shape
-    assert len(masks_a.shape) == 4
-    y_min = np.sum(np.sum(np.minimum(masks_a, masks_b), 2), 1)
-    y_max = np.sum(np.sum(np.maximum(masks_a, masks_b), 2), 1)
-    y_divide = np.divide(y_min, y_max)
-    y_divide[y_max == 0.] = 1.
+    assert len(masks_a.shape) == 3 or len(masks_b.shape) == 4, 'input has wrong shape'
+    if len(masks_a.shape) == 4:
+        y_min = np.sum(np.sum(np.minimum(masks_a, masks_b), 2), 1)
+        y_max = np.sum(np.sum(np.maximum(masks_a, masks_b), 2), 1)
+        y_divide = np.divide(y_min, np.maximum(y_max, 10 ** -8))
+        y_divide[y_max == 0.] = 1.
+        scores = np.mean(y_divide, 1)
+        assert scores.shape[0] == masks_a.shape[0], "target_score.shape: %s, masks.shape: %s" % (
+            scores.shape, masks_a.shape)
 
-    scores = np.mean(y_divide, 1)
-    assert scores.shape[0] == masks_a.shape[0], "target_score.shape: %s, masks.shape: %s" % (
-    scores.shape, masks_a.shape)
+    if len(masks_a.shape) == 3:
+        y_min = np.sum(np.sum(np.minimum(masks_a, masks_b), 1), 0)
+        y_max = np.sum(np.sum(np.maximum(masks_a, masks_b), 1), 0)
+        y_divide = np.divide(y_min, np.maximum(y_max, 10 ** -8))
+        y_divide[y_max == 0.] = 1.
+        scores = np.mean(y_divide)
+
+    assert (0.0 <= scores).all and (scores <= 1.0).all, 'oracle scores are in [0, 1]'
     return scores
 
 

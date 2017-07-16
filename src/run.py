@@ -64,9 +64,8 @@ def train(net, data, data_update_rate, model_dir, tensorboard_dir):
 
         np.set_printoptions(formatter={'all': lambda x: str(x) + '\n'})
 
-
         iter = initial_step = net.global_step.eval()
-        for imgs, input_masks, img_masks in generator.generate_batch():
+        for imgs, input_masks, img_masks in generator.generate_batch(train=True):
             target_scores = oracle_score(input_masks, img_masks)
             feed_dict = {net.x : imgs, net.y: input_masks, net.target_score: target_scores}
 
@@ -105,22 +104,21 @@ def test(net, data, modelpath, data_update_rate, tensorboard_dir):
         iter = 0
         for imgs, input_masks, img_masks in generator.generate_batch():
 
-            target_scores = oracle_score(input_masks, img_masks)
-            feed_dict = {net.x : imgs, net.y: input_masks, net.target_score: target_scores}
-            summary, loss, outputs, score_diffs, y_mean = sess.run(
-                [net.merged_summary, net.loss, net.output, net.score_diff, net.y_mean], feed_dict=feed_dict)
+            # target_scores = oracle_score(input_masks, img_masks)
+            # feed_dict = {net.x : imgs, net.y: input_masks, net.target_score: target_scores}
+            # summary, loss, outputs, score_diffs, y_mean = sess.run(
+            #     [net.merged_summary, net.loss, net.output, net.score_diff, net.y_mean], feed_dict=feed_dict)
 
-            writer.add_summary(summary, iter)
-            # acc = calc_accuracy(img_gt, pred)
-            # logging.info("it i = %s, acc = %s" %(iter, acc))
-            # recall = calc_recall(img_gt, pred)
-            # logging.info("it i = %s, recall = %s" %(iter, recall))
-            # logging.debug("img %s" % img)
-            # labels = pred_to_label(input_masks)
-            # mapp_pred = result_sample_mapping(img_gt, pred)
-            # write_image(mapp_pred, -1, data.index_list[iter])
+            # writer.add_summary(summary, iter)
+            acc = calc_accuracy(img_masks, input_masks)
+            recall = calc_recall(img_masks, input_masks)
+            logging.info("iter i = %s, acc = %s, recall = %s" %(iter, acc, recall))
+            logging.debug("img %s" % imgs)
+            labels = pred_to_label(input_masks)
+            mapp_pred = result_sample_mapping(img_masks, input_masks)
+            write_image(mapp_pred, -1, data.index_list[iter])
 
-            logging.info("iter %s: \noutputs = %s, \ntargets=%s, \nscore_diff=%s, \nloss = %s," %(iter, outputs, target_scores, score_diffs, loss))
+            #logging.info("iter %s: \noutputs = %s, \ntargets=%s, \nscore_diff=%s, \nloss = %s," %(iter, outputs, target_scores, score_diffs, loss))
             iter += 1
         writer.close()
 

@@ -195,8 +195,6 @@ def generate_similar_image(img, iou):
     batch_size, height, width, channels = img.shape
     mmin = np.ones([batch_size, channels])
     mmax = np.ones([batch_size, channels])
-
-    logging.debug("target iou %s" % iou)
     # only change background layer
     for i in range(batch_size):
         mask_iou = 1.0
@@ -206,7 +204,7 @@ def generate_similar_image(img, iou):
             repeat = 50
             while True:
                 rand = np.random.randint(height * width)
-                x = rand // height
+                x = rand // width
                 y = rand - x * width
                 if mask[i][x][y][0] == 0. or mask[i][x][y][0] == 1.:
                     logging.debug("found pixel")
@@ -230,7 +228,7 @@ def generate_similar_image(img, iou):
             mask[i][x][y][1] = 1-mask[i][x][y][0]
             mask_iou = oracle_score(mask[i], img[i])
         logging.debug("current done")
-        logging.info("generated similar mask %s " %mask)
+        logging.info("similar mask %s has mean %s " %(i, np.mean(mask[i, ..., 1])))
     return mask
 
 def sampleExponential(beta, maxVal):
@@ -249,7 +247,6 @@ def sampleExponential(beta, maxVal):
 
 def generate_random_sample(shape, teta, img_gt):
     diff_iou = sampleExponential(teta, 1.0)
-    logging.debug("iou diff %s " % diff_iou)
     new_mask = generate_similar_image(img_gt, 1 - diff_iou)
     return new_mask
 #
