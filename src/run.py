@@ -23,6 +23,7 @@ from dvn.src.util.data import pred_to_label, label_to_colorimg, blackMask, resul
 from dvn.src.util.input_output import write_image
 from dvn.src.util.model import inference as infer
 from dvn.src.util.measures import calc_accuracy, calc_recall, oracle_score
+from nn_toolbox.src.tf.tf_extend.metrics import R_squared
 
 
 
@@ -69,7 +70,7 @@ def train(net, data, data_update_rate, model_dir, tensorboard_dir):
             target_scores = oracle_score(input_masks, img_masks)
             feed_dict = {net.x : imgs, net.y: input_masks, net.target_score: target_scores}
 
-            summary, _, lr, loss, outputs, score_diffs, y_mean = sess.run([net.merged_summary, net.optimizer, net.adam._lr_t, net.loss, net.output, net.score_diff, net.y_mean], feed_dict=feed_dict)
+            summary, _, lr, loss, outputs, score_diffs, y_mean = sess.run([net.summary_train, net.optimizer, net.adam._lr_t, net.loss, net.output, net.score_diff, net.y_mean], feed_dict=feed_dict)
             logging.info("iter %s: lr=%s, \noutputs = %s, \ntargets=%s, \nscore_diff=%s, \nloss = %s," %(iter, lr, outputs, target_scores, score_diffs, loss))
 
             train_writer.add_summary(summary, iter)
@@ -83,7 +84,6 @@ def train(net, data, data_update_rate, model_dir, tensorboard_dir):
                 break
 
         train_writer.close()
-
 
 def test(net, data, modelpath, data_update_rate, tensorboard_dir):
 
@@ -101,25 +101,57 @@ def test(net, data, modelpath, data_update_rate, tensorboard_dir):
 
         np.set_printoptions(formatter={'all': lambda x: str(x) + '\n'})
 
+        acc_test = list()
+        recall_test = list()
+        loss_test = list()
+        target_scores_test = list()
+        output_score_test = list()
+
+        init_step = tf.train.global_step(sess, net.global_step)
         iter = 0
         for imgs, input_masks, img_masks in generator.generate_batch(train=False):
 
-            # target_scores = oracle_score(input_masks, img_masks)
-            # feed_dict = {net.x : imgs, net.y: input_masks, net.target_score: target_scores}
-            # summary, loss, outputs, score_diffs, y_mean = sess.run(
-            #     [net.merged_summary, net.loss, net.output, net.score_diff, net.y_mean], feed_dict=feed_dict)
-
-            # writer.add_summary(summary, iter)
+            target_scores = oracle_score(input_masks, img_masks)
+            feed_dict = {net.x : imgs, net.y: input_masks, net.target_score: target_scores}
+            loss, outputs, score_diffs, y_mean = sess.run(
+                [net.loss, net.output, net.score_diff, net.y_mean], feed_dict=feed_dict)
             acc = calc_accuracy(img_masks, input_masks)
             recall = calc_recall(img_masks, input_masks)
             logging.info("iter i = %s, acc = %s, recall = %s" %(iter, acc, recall))
-            logging.debug("img %s" % imgs)
-            labels = pred_to_label(input_masks)
-            mapp_pred = result_sample_mapping(img_masks, input_masks)
-            write_image(mapp_pred, -1, data.index_list[iter])
+
+            target_scores_test.append(target_scores)
+            output_score_test.append(outputs)
+            acc_test.append(acc)
+            recall_test.append(recall)
+            loss_test.append(loss)
+
+
+            #logging.debug("img %s" % imgs)
+            # labels = pred_to_label(input_masks)
+            # mapp_pred = result_sample_mapping(img_masks, input_masks)
+            # write_image(images=mapp_pred, iteration=-1, name=data.index_list[iter])
 
             #logging.info("iter %s: \noutputs = %s, \ntargets=%s, \nscore_diff=%s, \nloss = %s," %(iter, outputs, target_scores, score_diffs, loss))
             iter += 1
+
+        target_scores_test = np.concatenate(target_scores_test)
+        output_score_test = np.concatenate(output_score_test)
+        acc_test = np.array(acc_test)
+        recall_test = np.array(recall_test)
+        loss_test = np.array(loss_test)
+
+        rsquared = R_squared(y_true=target_scores_test, y_pred=output_score_test)
+        acc = np.mean(acc_test)
+        recall = np.mean(recall_test)
+        loss = np.mean(loss_test)
+
+        stats = {net.map_test: np.mean(target_scores_test),
+                 net.rsquared_test: rsquared,
+                 net.acc_test: acc,
+                 net.recall_test: recall,
+                 net.loss_test: loss}
+        summary = sess.run([net.summary_test], feed_dict = stats)
+        writer.add_summary(summary[0], init_step)
         writer.close()
 
 
@@ -171,7 +203,7 @@ if __name__== "__main__":
     logging.info(net_params)
     net = DvnNet(**net_params)
 
-    data_update_rate = 10
+    data_update_rate = 100
 
     net.build_network()
     if args.train:

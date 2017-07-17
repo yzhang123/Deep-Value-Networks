@@ -27,6 +27,8 @@ class DvnNet(object):
         self.weight_decay = weight_decay
         self.keep_prob = keep_prob
         self.regularizer = regularizer
+        self.summary_train=list()
+        self.summary_test=list()
 
     def conv(self, input, num_outputs, name, filter=(3, 3), stride=1, activation_fn=None, use_batch_norm=False,
              initializer=None, dropout=None, collection=None, use_layer_norm=False):
@@ -122,7 +124,7 @@ class DvnNet(object):
 
             input = tf.matmul(tf.reshape(tensor=input, shape=[-1, shape_fcn[0]]), W, name='fully')
 
-            tf.summary.histogram('pre_norm_activations', input)
+            self.summary_train.append(tf.summary.histogram('pre_norm_activations', input))
 
             # optionally normalize the input
             if use_batch_norm and not use_layer_norm:
@@ -136,7 +138,7 @@ class DvnNet(object):
                 input = activation_fn(input, name=name + '_post_acti')
 
 
-            tf.summary.histogram('post_activation', input)
+            self.summary_train.append(tf.summary.histogram('post_activation', input))
             # apply dropout with dropout probability
             if dropout is not None:
                 input = apply_dropout(x=input, keep_prob=dropout, name='drop', activation_fn=activation_fn)
@@ -238,12 +240,11 @@ class DvnNet(object):
         target_shape = target.get_shape().as_list()
         assert output_shape == target_shape, "output_shape.shape : %s, target_shape.shape: %s" %(output_shape, target_shape)
 
-        tf.summary.scalar('output_mean', tf.reduce_mean(output))
-
         self.score_diff = tf.abs(tf.subtract(target, output))
         self.variable_summaries(name='abs_target-output', var=self.score_diff)
         #tf.summary.scalar('abs_target-output', tf.reduce_mean(self.score_diff))
-        tf.summary.scalar('r_squared', r_squared(targets=target, logits=output))
+        self.rsquared_train = r_squared(targets=target, logits=output)
+
 
         #loss = -output * tf.log(target) - (1-output) * tf.log(1-target)
         loss = tf.square(tf.subtract(output, target))
@@ -254,7 +255,6 @@ class DvnNet(object):
 
         loss = tf.reduce_mean(loss)
 
-        tf.summary.scalar('loss', loss)
         return loss
 
     def variable_summaries(self, var, name=''):
@@ -262,15 +262,40 @@ class DvnNet(object):
         """
         with tf.name_scope('summaries'):
             mean = tf.reduce_mean(var)
-            tf.summary.scalar('mean_'+ name, mean)
+            self.summary_train.append(tf.summary.scalar('mean_'+ name, mean))
             with tf.name_scope('stddev'):
                 stddev = tf.sqrt(tf.reduce_mean(tf.square(var - mean)))
-            tf.summary.scalar('stddev_' + name, stddev)
-            tf.summary.scalar('max_'+ name, tf.reduce_max(var))
-            tf.summary.scalar('min_'+ name, tf.reduce_min(var))
-            tf.summary.histogram('histogram_'+ name, var)
+            self.summary_train.append(tf.summary.scalar('stddev_' + name, stddev))
+            self.summary_train.append(tf.summary.scalar('max_'+ name, tf.reduce_max(var)))
+            self.summary_train.append(tf.summary.scalar('min_'+ name, tf.reduce_min(var)))
+            self.summary_train.append(tf.summary.histogram('histogram_'+ name, var))
 
+    def get_train_summary(self):
+        """Attach a lot of summaries to a Tensor (for TensorBoard visualization).
+        """
+        with tf.name_scope('train'):
+            self.summary_train.append(tf.summary.scalar('output_mean', tf.reduce_mean(self.output)))
+            self.summary_train.append(tf.summary.scalar('r_squared', self.rsquared_train))
+            self.summary_train.append(tf.summary.scalar('loss', self.loss))
+            self.summary_train.append(tf.summary.scalar('y_mean', self.y_mean[0]))
+            self.summary_train.append(tf.summary.image("x", self.x))
+            self.summary_train.append(tf.summary.histogram("histogram_gradient", self.inference_grad))
+            self.summary_train.append(tf.summary.histogram("histogram_gradient", self.adverse_grad))
+            return tf.summary.merge(self.summary_train)
 
+    def get_test_summary(self):
+        with tf.variable_scope('test'):
+            self.map_test = tf.placeholder(dtype=tf.float32, name='map')
+            self.rsquared_test = tf.placeholder(dtype=tf.float32, name='rquared')
+            self.acc_test = tf.placeholder(dtype=tf.float32, name='acc')
+            self.recall_test = tf.placeholder(dtype=tf.float32, name='recall')
+            self.loss_test = tf.placeholder(dtype=tf.float32, name='loss')
+            self.summary_test.append(tf.summary.scalar('map', self.map_test))
+            self.summary_test.append(tf.summary.scalar('rsquared', self.rsquared_test))
+            self.summary_test.append(tf.summary.scalar('acc', self.acc_test))
+            self.summary_test.append(tf.summary.scalar('recall', self.recall_test))
+            self.summary_test.append(tf.summary.scalar('loss', self.loss_test))
+            return tf.summary.merge(self.summary_test)
 
     def build_network(self):
 
@@ -284,7 +309,6 @@ class DvnNet(object):
             self.target_score = tf.placeholder(tf.float32, shape=[None], name='target_score') # ground truth segmentation
 
             self.y_mean = tf.reduce_mean(self.y, [1, 2])[..., 1]
-            tf.summary.image("x", self.x)
 
         with tf.variable_scope('input-concat'):
             self.concat = tf.concat([self.x, self.y], 3, name='xy-concat')
@@ -315,11 +339,9 @@ class DvnNet(object):
 
         with tf.variable_scope('inference'):
             self.inference_grad = tf.gradients(self.output, self.y)
-            tf.summary.histogram("histogram_gradient", self.inference_grad)
 
         with tf.variable_scope('adverse'):
             self.adverse_grad = tf.gradients(self.loss, self.y)
-            tf.summary.histogram("histogram_gradient", self.adverse_grad)
 
         logging.info("#variables %s" % count_variables())
 
@@ -330,5 +352,5 @@ class DvnNet(object):
             # self._graph['train_gradients'] = optimizer.compute_gradients(self._graph['loss'])
             # self._graph['train_optimizer'] = optimizer.apply_gradients(self._graph['train_gradients'], global_step=self._graph['global_step']) # protect y1:0 from being updated
 
-
-        self.merged_summary = tf.summary.merge_all()
+        self.summary_test = self.get_test_summary()
+        self.summary_train = self.get_train_summary()

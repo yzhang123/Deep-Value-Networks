@@ -10,6 +10,7 @@ from dvn.src.util.data import left_upper1_4_mask, left_upper2_4_mask, left_upper
 
 from dvn.src.util.model import inference as infer, adversarial as adverse
 from dvn.src.util.data import generate_random_sample
+from dvn.src.util.input_output import write_mask
 
 
 
@@ -75,7 +76,7 @@ class DataGenerator(object):
 
     def generate_batch(self, train=False):
         shape = (self.data.batch_size, self.data.height, self.data.width, self.data.num_classes)
-
+        idx = 0
         for img, mask_gt in self.data:
             init_mask = self.get_initialization(shape)
             rand = np.random.rand()
@@ -91,8 +92,10 @@ class DataGenerator(object):
                     logging.info("inference")
                     # pred_mask = infer(session=self.session, net=self.net, img=img, init_mask=init_mask,
                     #                   data_update_rate=self.data_update_rate, train=train, iterations=20)
-                    pred_mask = infer(session=self.session, net=self.net, img=img, init_mask=init_mask,
+                    pred_masks = infer(session=self.session, net=self.net, img=img, init_mask=init_mask,
                                       data_update_rate=100, train=train, iterations=100)
+                    assert len(pred_masks) == 1
+                    pred_mask = pred_masks[0][0]
                 # elif rand > 0.1:
                 #     logging.info("rand")
                 #     teta = 0.05
@@ -134,8 +137,14 @@ class DataGenerator(object):
                     # pred_mask[idx0][idx1][idx2][idx3] = mask_gt[idx0][idx1][idx2][idx3]
             else:
                 logging.info("inference")
-                pred_mask = infer(session=self.session, net=self.net, img=img, init_mask=init_mask,
-                                  data_update_rate=self.data_update_rate, train=train, iterations=100)
+                pred_masks = infer(session=self.session, net=self.net, img=img, init_mask=init_mask,
+                                  data_update_rate=100, train=train, iterations=100)
+
+                for mask, iter in pred_masks:
+                    write_mask(mask=mask, mask_gt=mask_gt, output_dir='output', name=self.data.index_list[idx], iteration=iter)
+                idx += self.data.batch_size
+
+                pred_mask = pred_masks[-1][0]
             yield img, pred_mask, mask_gt
             # yield img, init_mask, mask_gt
 
