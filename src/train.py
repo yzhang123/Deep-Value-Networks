@@ -78,8 +78,6 @@ def main(net, train_data, test_data, data_update_rate, model_dir, tensorboard_di
 
         iter = initial_step = net.global_step.eval()
         for imgs, input_masks, img_masks in generator_train.generate():
-            print(imgs.shape)
-            print(input_masks.shape)
             #binarize input mask
             bin_mask = binarize_image(input_masks)
             #target_scores = oracle_score(input_masks, img_masks)
@@ -150,7 +148,7 @@ if __name__== "__main__":
     data_update_rate = 100
 
     net.build_network()
-    train_data = DataSet(data_dir=data_dir, classes=classes, batch_size=BATCH_SIZE, height=HEIGHT, width=WIDTH, mode='trainval  ')
+    train_data = DataSet(data_dir=data_dir, classes=classes, batch_size=BATCH_SIZE, height=HEIGHT, width=WIDTH, mode='trainval')
     test_data = DataSet(data_dir=data_dir, classes=classes, batch_size=BATCH_SIZE, height=HEIGHT, width=WIDTH, mode='test')
     train_params = {
         'net': net,

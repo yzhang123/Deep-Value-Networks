@@ -149,38 +149,20 @@ class DvnNet(object):
 
         return input
 
-    # def conv_acti_layer(self, bottom, filter_shape, filter_depth, name, stride, padding='SAME', layernorm=False):
-    #     strides = [1, stride, stride, 1]
-    #     with tf.variable_scope(name):
-    #         pre_depth = bottom.get_shape()[3].value
-    #         weights_shape = filter_shape + [pre_depth, filter_depth]
-    #         weight = self._weight_variable(weights_shape, name=name)
-    #         bias = self._bias_variable(filter_depth, name=name)
-    #         conv = tf.nn.conv2d(bottom, weight, strides=strides, padding=padding)
-    #
-    #         if layernorm:
-    #             norm = layernorm(conv)
-    #             relu = tf.nn.relu(norm + bias)
-    #         else:
-    #             relu = tf.nn.relu(conv + bias)
-    #
-    #         return relu
+    def xavier_initializer(self, conv=True, dtype=tf.float32, uniform=False):
+        """ Get initializer for convolution or normal layers (difference is not clear in xavier).
 
-    # def fc_acti_layer(self, bottom, weight_shape, bias_shape, name, activation_fn=tf.nn.relu, dropout=False, layernorm=False):
-    #     with tf.variable_scope(name):
-    #         W = self._weight_variable(weight_shape, name=name)
-    #         b = self._bias_variable(bias_shape, name=name)
-    #         preactivation = tf.matmul(bottom, W)
-    #         tf.summary.histogram('pre_norm_activations', preactivation)
-    #         if layernorm:
-    #             norm = layer_norm(preactivation)
-    #             acti = activation_fn(norm + b, name=name + '_relu')
-    #         else:
-    #             acti = activation_fn(preactivation + b, name=name + '_relu')
-    #         tf.summary.histogram('activations', acti)
-    #         if dropout:
-    #             acti = tf.nn.dropout(acti, self._keep_prob, name=name + '_dropout')
-    #         return acti
+        :param conv: Flag specifying if this initializer is used for a convolutional layer
+        :param dtype: data type of the variable which should be initialized.
+        :param uniform: Flag specifying wether to use uniform or normal distributed random initialization.
+        :return: Xavier initializer object
+        """
+        if conv:
+            initializer = tf.contrib.layers.xavier_initializer_conv2d(uniform=uniform, seed=None, dtype=dtype)
+        else:
+            initializer = tf.contrib.layers.xavier_initializer(uniform=uniform, seed=None, dtype=dtype)
+
+        return initializer
 
     def init_weight_var(self, shape, initializer=None, datatype=tf.float32, name=None):
         """  Returns a weight tensor with specified shape and datatype. An optional variable scope is wrapped around the
@@ -315,20 +297,20 @@ class DvnNet(object):
             self.concat = tf.concat([self.x, self.y], 3, name='xy-concat')
 
         with tf.variable_scope('conv1'):
-            self.conv1 = self.conv(input=self.concat, num_outputs=64, name='conv1', filter=(5,5), stride=1, activation_fn=tf.nn.elu, use_layer_norm=True)
+            self.conv1 = self.conv(input=self.concat, num_outputs=64, name='conv1', filter=(5,5), stride=1, activation_fn=tf.nn.elu, initializer=self.xavier_initializer(conv=True), use_layer_norm=True)
         with tf.variable_scope('conv2'):
-            self.conv2 = self.conv(input=self.conv1, num_outputs=128, name='conv2', filter=(5,5), stride=2, activation_fn=tf.nn.elu, use_layer_norm=True)
+            self.conv2 = self.conv(input=self.conv1, num_outputs=128, name='conv2', filter=(5,5), stride=2, activation_fn=tf.nn.elu, initializer=self.xavier_initializer(conv=True), use_layer_norm=True)
         with tf.variable_scope('conv3'):
-            self.conv3 = self.conv(input=self.conv2, num_outputs=128, name='conv3', filter=(5,5), stride=2, activation_fn=tf.nn.elu, use_layer_norm=True)
+            self.conv3 = self.conv(input=self.conv2, num_outputs=128, name='conv3', filter=(5,5), stride=2, activation_fn=tf.nn.elu, initializer=self.xavier_initializer(conv=True), use_layer_norm=True)
 
         with tf.variable_scope('fc1'):
-            self.fc1 = self.fully_connected(input=self.conv3, num_outputs=384, name='fc1', activation_fn=tf.nn.elu, use_layer_norm=True)
+            self.fc1 = self.fully_connected(input=self.conv3, num_outputs=384, name='fc1', activation_fn=tf.nn.elu, initializer=self.xavier_initializer(conv=False), use_layer_norm=True)
 
         with tf.variable_scope('fc2'):
-            self.fc2 = self.fully_connected(input=self.fc1, num_outputs=80, name='fc2', activation_fn=tf.nn.elu, use_layer_norm=True)
+            self.fc2 = self.fully_connected(input=self.fc1, num_outputs=80, name='fc2', activation_fn=tf.nn.elu, initializer=self.xavier_initializer(conv=False), use_layer_norm=True)
 
         with tf.variable_scope('fc3'):
-            self.fc3 = self.fully_connected(input=self.fc2, num_outputs=1, name='fc3', activation_fn=tf.nn.sigmoid, use_layer_norm=False)
+            self.fc3 = self.fully_connected(input=self.fc2, num_outputs=1, name='fc3', activation_fn=tf.nn.sigmoid, initializer=self.xavier_initializer(conv=False), use_layer_norm=False)
         self.output = tf.reshape(self.fc3, [-1])
 
         with tf.variable_scope('loss'):
