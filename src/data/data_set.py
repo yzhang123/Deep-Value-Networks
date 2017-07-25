@@ -221,13 +221,10 @@ if __name__=='__main__':
 
     # scipy.misc.imsave('test_img.png', data.avg_mask)
 
-    # idx = 0
-    # while(True):
-    #     for img, img_gt in data:
-    #         print(idx)
-    #         idx +=1
-    #     data.reset()
-    ref =data.image_iterator(data)
-    print(id(ref))
-    ref =data.image_iterator(data)
-    print(id(ref))
+    idx = 0
+    while(True):
+        for img, img_gt in data:
+            print(idx)
+            idx +=1
+        data.reset()
+

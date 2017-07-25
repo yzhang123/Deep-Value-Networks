@@ -137,7 +137,6 @@ def eval(session, net, data_generator, writer, step):
 
         iter += 1
 
-
     target_scores_test = np.concatenate(target_scores_test)
     output_score_test = np.concatenate(output_score_test)
     acc_test = np.array(acc_test)
