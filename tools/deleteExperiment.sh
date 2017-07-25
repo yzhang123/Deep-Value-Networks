@@ -27,8 +27,6 @@ fi
 
 #delete logs
 to_delete=$root_dir/logs/log$exp_no*
-if [ -f "$to_delete" ]; then
-    rm $to_delete
-    echo "deleted $to_delete"
-fi
+echo "deleted $to_delete"
+
 

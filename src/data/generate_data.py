@@ -88,7 +88,7 @@ class DataGenerator(object):
             shape = mask_gt.shape
             init_mask = self.get_initialization(shape)
             rand = np.random.rand()
-            if mode == 'train':
+            if mode == 'train' or mode == 'trainval':
                 if rand > 0.7:
                     logging.info("gt")
                     pred_mask = mask_gt
@@ -143,7 +143,7 @@ class DataGenerator(object):
                     #     pos = pos // self.data.height
                     #     idx0 = pos % self.data.batch_size
                     # pred_mask[idx0][idx1][idx2][idx3] = mask_gt[idx0][idx1][idx2][idx3]
-            elif mode == 'test':
+            elif mode == 'test' or mode == 'val':
                 logging.info("inference")
                 pred_masks = infer(session=self.session, net=self.net, img=img, init_mask=init_mask,
                                   data_update_rate=100, train=False, iterations=300)

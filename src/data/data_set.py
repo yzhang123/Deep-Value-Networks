@@ -24,6 +24,7 @@ class BatchIterator(object):
     def __iter__(self):
         return self.batch_iterator
 
+
     def stack(self):
         """
         Aggregates list of datapoints to list of batched datapoints
@@ -107,13 +108,17 @@ class DataSet(object):
         self.data_tuples = get_data_tuples(data_dir=self.data_dir, index_list=self.file_index_list)
 
         self.indices = np.arange(len(self.data_tuples))
-        print(batch_size)
-        self.batch_iterator = BatchIterator(self.image_iterator(repeat=self.repeat, shuffle=self.shuffle), batch_size=batch_size)
+        self.data_iterator = self.image_iterator(repeat=self.repeat, shuffle=self.shuffle)
+        self.batch_iterator = BatchIterator(iterator=self.data_iterator, batch_size=self.batch_size)
         #self.avg_img = gaussian_filter(self.get_avg_img(img_dir), 3)
         #self.avg_img, self.avg_mask = map(lambda x: gaussian_filter(x, 3), self.get_avg_img(img_dir))
 
     def __iter__(self):
         return iter(self.batch_iterator)
+
+    def reset(self):
+        self.data_iterator = self.image_iterator(repeat=self.repeat, shuffle=self.shuffle)
+        self.batch_iterator = BatchIterator(iterator=self.data_iterator, batch_size=self.batch_size)
 
 
     def image_iterator(self, repeat=False, shuffle=False):
@@ -209,7 +214,7 @@ if __name__=='__main__':
     data_dir = join(root_path, "data/weizmann_horse_db")
 
     classes = ['__background__', 'horse']
-    data = DataSet(data_dir=data_dir, classes=classes, batch_size=1, height=48, width=48, mode='trainval')
+    data = DataSet(data_dir=data_dir, classes=classes, batch_size=1, height=48, width=48, mode='test')
 
     import scipy.misc
 
@@ -217,10 +222,9 @@ if __name__=='__main__':
     # scipy.misc.imsave('test_img.png', data.avg_mask)
 
     idx = 0
-    for img, img_gt in data:
-        scipy.misc.imsave(join(root_path, 'output','img_%s.png') %idx, img[0, ...])
-        scipy.misc.imsave(join(root_path, 'output','gt%s_0.png') % idx, img_gt[0, ..., 0])
-        scipy.misc.imsave(join(root_path, 'output','gt%s_1.png')% idx, img_gt[0, ..., 1])
-        idx += 1
-        if (idx > 400):
-            break
+    while(True):
+        for img, img_gt in data:
+            print(idx)
+            idx +=1
+        data.reset()
+
