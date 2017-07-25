@@ -73,10 +73,10 @@ class DataSet(object):
 
         self.mode = mode
 
-        if mode == 'train':
+        if mode == 'train' or mode == 'trainval':
             self.repeat = True
             self.shuffle = True
-        elif mode == 'val' or mode == 'trainval' or mode == 'test':
+        elif mode == 'val' or mode == 'test':
             self.repeat = False
             self.shuffle = False
         else:

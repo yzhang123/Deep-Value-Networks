@@ -21,12 +21,20 @@ root_path = join(dir_path, "../../")
 
 class DataGenerator(object):
 
-    def __init__(self, session, net, data, train, data_update_rate):
+    def __init__(self, session, net, data, mode, data_update_rate):
+        """
+
+        :param session:
+        :param net: network class object
+        :param data: DataSet object
+        :param train:
+        :param data_update_rate:
+        """
         self.session = session
         self.net = net
         self.data = data # (img, img_gt)
         self.data_update_rate = data_update_rate
-        self.generators = [self.generate_batch(train=train)]
+        self.generators = [self.generate_batch(mode=mode)]
 
     def generate(self):
         while True:
@@ -74,13 +82,13 @@ class DataGenerator(object):
             yield imgs, input_masks, img_masks
 
 
-    def generate_batch(self, train=False):
-        shape = (self.data.batch_size, self.data.height, self.data.width, self.data.num_classes)
+    def generate_batch(self, mode='train'):
         idx = 0
         for img, mask_gt in self.data:
+            shape = mask_gt.shape
             init_mask = self.get_initialization(shape)
             rand = np.random.rand()
-            if train:
+            if mode == 'train':
                 if rand > 0.7:
                     logging.info("gt")
                     pred_mask = mask_gt
@@ -93,7 +101,7 @@ class DataGenerator(object):
                     # pred_mask = infer(session=self.session, net=self.net, img=img, init_mask=init_mask,
                     #                   data_update_rate=self.data_update_rate, train=train, iterations=20)
                     pred_masks = infer(session=self.session, net=self.net, img=img, init_mask=init_mask,
-                                      data_update_rate=100, train=train, iterations=100)
+                                      data_update_rate=100, train=True, iterations=100)
                     assert len(pred_masks) == 1
                     pred_mask = pred_masks[0][0]
                 # elif rand > 0.1:
@@ -135,14 +143,14 @@ class DataGenerator(object):
                     #     pos = pos // self.data.height
                     #     idx0 = pos % self.data.batch_size
                     # pred_mask[idx0][idx1][idx2][idx3] = mask_gt[idx0][idx1][idx2][idx3]
-            else:
+            elif mode == 'test':
                 logging.info("inference")
                 pred_masks = infer(session=self.session, net=self.net, img=img, init_mask=init_mask,
-                                  data_update_rate=100, train=train, iterations=300)
+                                  data_update_rate=100, train=False, iterations=300)
 
                 # visualize stages of inference and write out
                 for mask, iter in pred_masks:
-                    write_mask(mask=mask, mask_gt=mask_gt, output_dir='output', name=self.data.index_list[idx], iteration=iter)
+                    write_mask(mask=mask, mask_gt=mask_gt, output_dir='output', name=self.data.file_index_list[idx], iteration=iter)
                 idx += self.data.batch_size
 
                 # only return final mask in inference process

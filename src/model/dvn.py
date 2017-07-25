@@ -12,7 +12,7 @@ import logging
 from tensorflow.contrib.layers import layer_norm
 from nn_toolbox.src.tf.tf_extend.tf_helpers import count_variables
 from nn_toolbox.src.tf.tf_extend.metrics import r_squared
-from nn_toolbox.src.tf.blocks.basic_blocks import batch_renorm, get_bias_value, apply_dropout, sparse_drop_mask, layer_norm
+from nn_toolbox.src.tf.blocks.basic_blocks import batch_renorm, get_bias_value, apply_dropout, layer_norm
 from tensorflow.contrib.layers import flatten
 
 
