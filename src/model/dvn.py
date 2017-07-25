@@ -315,17 +315,17 @@ class DvnNet(object):
             self.concat = tf.concat([self.x, self.y], 3, name='xy-concat')
 
         with tf.variable_scope('conv1'):
-            self.conv1 = self.conv(input=self.concat, num_outputs=64, name='conv1', filter=(5,5), stride=1, activation_fn=tf.nn.relu, use_layer_norm=True)
+            self.conv1 = self.conv(input=self.concat, num_outputs=64, name='conv1', filter=(5,5), stride=1, activation_fn=tf.nn.elu, use_layer_norm=True)
         with tf.variable_scope('conv2'):
-            self.conv2 = self.conv(input=self.conv1, num_outputs=128, name='conv2', filter=(5,5), stride=2, activation_fn=tf.nn.relu, use_layer_norm=True)
+            self.conv2 = self.conv(input=self.conv1, num_outputs=128, name='conv2', filter=(5,5), stride=2, activation_fn=tf.nn.elu, use_layer_norm=True)
         with tf.variable_scope('conv3'):
-            self.conv3 = self.conv(input=self.conv2, num_outputs=128, name='conv3', filter=(5,5), stride=2, activation_fn=tf.nn.relu, use_layer_norm=True)
+            self.conv3 = self.conv(input=self.conv2, num_outputs=128, name='conv3', filter=(5,5), stride=2, activation_fn=tf.nn.elu, use_layer_norm=True)
 
         with tf.variable_scope('fc1'):
-            self.fc1 = self.fully_connected(input=self.conv3, num_outputs=384, name='fc1', activation_fn=tf.nn.relu, use_layer_norm=True)
+            self.fc1 = self.fully_connected(input=self.conv3, num_outputs=384, name='fc1', activation_fn=tf.nn.elu, use_layer_norm=True)
 
         with tf.variable_scope('fc2'):
-            self.fc2 = self.fully_connected(input=self.fc1, num_outputs=80, name='fc2', activation_fn=tf.nn.relu, use_layer_norm=True)
+            self.fc2 = self.fully_connected(input=self.fc1, num_outputs=80, name='fc2', activation_fn=tf.nn.elu, use_layer_norm=True)
 
         with tf.variable_scope('fc3'):
             self.fc3 = self.fully_connected(input=self.fc2, num_outputs=1, name='fc3', activation_fn=tf.nn.sigmoid, use_layer_norm=False)
