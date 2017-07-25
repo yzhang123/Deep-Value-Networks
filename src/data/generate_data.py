@@ -138,12 +138,14 @@ class DataGenerator(object):
             else:
                 logging.info("inference")
                 pred_masks = infer(session=self.session, net=self.net, img=img, init_mask=init_mask,
-                                  data_update_rate=100, train=train, iterations=100)
+                                  data_update_rate=100, train=train, iterations=300)
 
+                # visualize stages of inference and write out
                 for mask, iter in pred_masks:
                     write_mask(mask=mask, mask_gt=mask_gt, output_dir='output', name=self.data.index_list[idx], iteration=iter)
                 idx += self.data.batch_size
 
+                # only return final mask in inference process
                 pred_mask = pred_masks[-1][0]
             yield img, pred_mask, mask_gt
             # yield img, init_mask, mask_gt

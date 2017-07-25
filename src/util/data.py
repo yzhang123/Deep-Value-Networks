@@ -116,33 +116,41 @@ def label_to_colorimg(pred_labels, classes, color_map):
         class_mask = pred_labels == idx
         imgs[class_mask] = color_map[c]
 
-def get_image_index_list(img_dir):
-    assert os.path.exists(img_dir), "path %s doesnt exist" % img_dir
+def get_image_index_list(data_dir):
+    assert os.path.exists(data_dir), "path %s doesnt exist" % data_dir
+    img_dir = join(data_dir, 'images')
+    assert os.path.exists(img_dir), "images directory %s doesnt exist %" % img_dir
     index = [os.path.basename(os.path.splitext(f)[0]) for f in sorted(listdir(img_dir))]
-    extension = os.path.splitext(listdir(img_dir)[0])[1]
+    extension = os.path.splitext(listdir(data_dir)[0])[1]
     return index, extension
 
-def get_data_tuples(img_dir, labels_dir, index_list=None, extension=None):
+def get_file_extention(file_dir):
+    first_file_in_dir = os.listdir(file_dir)[0]
+    return os.path.splitext(first_file_in_dir)[1]
+
+def get_data_tuples(data_dir, index_list):
     """
     returns absolute file paths in the dataPath directory
     :param dataPath: directory
     :param dataPath: directory
     :return: list of tuples in form of [(img_name, img_gt_name)]
     """
-    assert os.path.exists(img_dir), "img dir %s doesnt exist" % img_dir
-    if index_list:
-        files = [f + extension for f in index_list]
-    else:
-        files = [f for f in listdir(img_dir) if isfile(join(img_dir, f))]
-    img_files = [join(img_dir, f) for f in files]
+    assert os.path.exists(data_dir), "img dir %s doesnt exist" % data_dir
+    images_dir = join(data_dir, 'images')
+    annotations_dir = join(data_dir, 'annotations')
+    img_file_ext = get_file_extention(images_dir)
+    annotation_file_ext = get_file_extention(annotations_dir)
 
-    if labels_dir:
-        assert os.path.exists(labels_dir), "labels dir %s doesnt exist" % labels_dir
-        label_files = [join(labels_dir, f) for f in files]
-        assert len(img_files) == len(label_files), "image and label file numbers do not match"
-        return [(img_files[i], label_files[i]) for i in range(len(img_files))]
-    else:
-        return [(img_files[i], None) for i in range(len(img_files))]
+
+    list_abs_img_file_path = [join(images_dir, f + img_file_ext) for f in index_list]
+    list_abs_annotation_file_path = [join(annotations_dir, f + annotation_file_ext) for f in index_list]
+
+    return zip(list_abs_img_file_path, list_abs_annotation_file_path)
+
+def read_file_to_list(file_path):
+    with open(file_path) as f:
+        return f.read().splitlines()
+
 
 def color_decode(orig_img, classes, color_map):
     seg = np.zeros([orig_img.shape[0], orig_img.shape[1], len(classes)], dtype=np.float32)
@@ -252,3 +260,18 @@ def generate_random_sample(shape, teta, img_gt):
 #
 # for i in range(10):
 #     print(sampleExponential(1., 1.0))
+
+
+def binarize_image(img):
+    """
+    :param img: numpy image, can have batch dimension
+    :return:
+    """
+    max_indices = img == img.max(axis=-1, keepdims=True)
+    min_indices = True ^ max_indices
+    bin_image = img.copy()
+    bin_image[max_indices] = 1.
+    bin_image[min_indices] = 0.
+    return bin_image
+
+

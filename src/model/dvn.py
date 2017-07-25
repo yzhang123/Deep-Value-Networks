@@ -244,6 +244,7 @@ class DvnNet(object):
         self.variable_summaries(name='abs_target-output', var=self.score_diff)
         #tf.summary.scalar('abs_target-output', tf.reduce_mean(self.score_diff))
         self.rsquared_train = r_squared(targets=target, logits=output)
+        #self.summary_train.append(tf.summary.scalar('r_squared_train', self.rsquared_train))
 
 
         #loss = -output * tf.log(target) - (1-output) * tf.log(1-target)

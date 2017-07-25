@@ -19,7 +19,7 @@ from understand_tensorflow.src.deeplearning import save_model, load_model
 from dvn.src.model.dvn import DvnNet
 from dvn.src.data.data_set import DataSet
 from dvn.src.data.generate_data import DataGenerator
-from dvn.src.util.data import pred_to_label, label_to_colorimg, blackMask, result_sample_mapping
+from dvn.src.util.data import pred_to_label, label_to_colorimg, blackMask, result_sample_mapping, binarize_image
 from dvn.src.util.input_output import write_image
 from dvn.src.util.model import inference as infer
 from dvn.src.util.measures import calc_accuracy, calc_recall, oracle_score
@@ -67,7 +67,10 @@ def train(net, data, data_update_rate, model_dir, tensorboard_dir):
 
         iter = initial_step = net.global_step.eval()
         for imgs, input_masks, img_masks in generator.generate_batch(train=True):
-            target_scores = oracle_score(input_masks, img_masks)
+            #binarize input mask
+            bin_mask = binarize_image(input_masks)
+            #target_scores = oracle_score(input_masks, img_masks)
+            target_scores = oracle_score(bin_mask, img_masks)
             feed_dict = {net.x : imgs, net.y: input_masks, net.target_score: target_scores}
 
             summary, _, lr, loss, outputs, score_diffs, y_mean = sess.run([net.summary_train, net.optimizer, net.adam._lr_t, net.loss, net.output, net.score_diff, net.y_mean], feed_dict=feed_dict)
@@ -99,7 +102,7 @@ def test(net, data, modelpath, data_update_rate, tensorboard_dir):
 
         writer = tf.summary.FileWriter(tensorboard_dir + '/test', sess.graph)
 
-        np.set_printoptions(formatter={'all': lambda x: str(x) + '\n'})
+        #np.set_printoptions(formatter={'all': lambda x: str(x) + '\n'})
 
         acc_test = list()
         recall_test = list()
@@ -110,15 +113,19 @@ def test(net, data, modelpath, data_update_rate, tensorboard_dir):
         init_step = tf.train.global_step(sess, net.global_step)
         iter = 0
         for imgs, input_masks, img_masks in generator.generate_batch(train=False):
-
+            #
+            # binarized_mask = input_masks[np.argmax(input_masks, axis=-1)] = 1
+            # binarized_mask = input_masks[np.argmax(input_masks, axis=-1)] = 1
             target_scores = oracle_score(input_masks, img_masks)
             feed_dict = {net.x : imgs, net.y: input_masks, net.target_score: target_scores}
             loss, outputs, score_diffs, y_mean = sess.run(
                 [net.loss, net.output, net.score_diff, net.y_mean], feed_dict=feed_dict)
             acc = calc_accuracy(img_masks, input_masks)
             recall = calc_recall(img_masks, input_masks)
-            logging.info("iter i = %s, acc = %s, recall = %s" %(iter, acc, recall))
-
+            logging.info("iter i = %s, acc = %s, recall = %s, target_score=%s, output_score=%s, loss=%s, generated_mask_mean=%s, gt_mask_mean=%s"
+                         %(iter, acc, recall, np.squeeze(target_scores), np.squeeze(outputs), loss, np.squeeze(y_mean), np.mean(np.squeeze(img_masks[..., 1]))))
+            logging.info('generated_mask')
+            logging.info(np.squeeze(input_masks)[20:-10,20:-10])
             target_scores_test.append(target_scores)
             output_score_test.append(outputs)
             acc_test.append(acc)
@@ -160,14 +167,14 @@ img_gt_path = join(root_path, "data/weizmann_horse_db/figure_ground")
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--train', action='store_true')
-    parser.add_argument('--data', default=img_path)
-    parser.add_argument('--data_gt', default=img_gt_path)
-    parser.add_argument('--loglevel', default='info')
-    parser.add_argument('--model_dir')
-    parser.add_argument('--tensorboard_dir')
-    parser.add_argument('--log_path')
-    parser.add_argument('--model', type=str, help='model path, e.g. ../model-500')
+    parser.add_argument('--train', action='store_true', help='when flag is set training starts, otherwise testing', required=False)
+    parser.add_argument('--data', help='input image folder', default=img_path, required=False)
+    parser.add_argument('--data_gt', help='grount truth image folder', default=img_gt_path, required=False)
+    parser.add_argument('--loglevel', help='logging model, currently supports [info, debug]', default='info', required=False)
+    parser.add_argument('--model_dir', help='model weight folder for to restore or save weights during training', default=None, required=False)
+    parser.add_argument('--tensorboard_dir', help='folder to save logs for tensorboard visualization', required=True)
+    parser.add_argument('--log_path', help='path to log file', required=True)
+    parser.add_argument('--model', type=str, help='model path from which model is retrieved during testing, e.g. ../model-500', default=None, required=False)
     args = parser.parse_args()
     return args
 
@@ -207,7 +214,7 @@ if __name__== "__main__":
 
     net.build_network()
     if args.train:
-        data = DataSet(classes=classes, img_dir=img_path, gt_dir=img_gt_path, batch_size=BATCH_SIZE, size=SIZE, train=True, repeat=True, shuffle=True)
+        data = DataSet(classes=classes, data_dir=img_path, gt_dir=img_gt_path, batch_size=BATCH_SIZE, size=SIZE, train=True, repeat=True, shuffle=True)
         train_params = {
             'net': net,
             'data': data,
@@ -219,7 +226,7 @@ if __name__== "__main__":
         logging.info(train_params)
         train(**train_params)
     else:
-        data = DataSet(classes=classes, img_dir=img_path, gt_dir=img_gt_path, batch_size=1, size=SIZE, train=False, repeat=False, shuffle=False)
+        data = DataSet(classes=classes, data_dir=img_path, gt_dir=img_gt_path, batch_size=1, size=SIZE, train=False, repeat=False, shuffle=False)
 
         if args.model:
             modelpath = args.model

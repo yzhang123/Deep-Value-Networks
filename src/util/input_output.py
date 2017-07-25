@@ -18,6 +18,7 @@ def write_image(images, iteration, output_dir, name, mapping=True):
 
 
 def write_mask(mask, mask_gt, output_dir, name, iteration):
-    labels = pred_to_label(mask)
+    #labels = pred_to_label(mask)
     mapp_pred = result_sample_mapping(mask_gt, mask)
     write_image(images=mapp_pred, iteration=iteration, output_dir=output_dir, name=name)
+    #write_image(images=mask[..., 1], iteration=iteration, output_dir=output_dir, name=name)

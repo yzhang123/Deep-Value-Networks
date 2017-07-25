@@ -11,6 +11,18 @@ ITERS_PER_SAVE = 10
 
 
 def inference(session, net, img, init_mask, data_update_rate, train, iterations):
+    """
+    executes inference on initial mask init_mask given an image img for given number of iterations. The inference comprises of
+    determining the gradient of the output score on the mask and updating the mask by adding the gradient with a factor of data_update_rate
+    :param session: session the inference shall run in
+    :param net: network
+    :param img: image
+    :param init_mask: initial mask which is used for inference
+    :param data_update_rate: factor which the gradient is multiplied with
+    :param train: true for training mode, false for testing mode
+    :param iterations: number of inference iterations
+    :return: list of inferred masks. In training mode the list contains only the final mask, in testing mode a number of masks are saved
+    """
     logging.debug('update rate : %s' % data_update_rate)
     pred_mask = init_mask
 
