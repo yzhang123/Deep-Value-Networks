@@ -34,61 +34,64 @@ class DataGenerator(object):
         self.net = net
         self.data = data # (img, img_gt)
         self.data_update_rate = data_update_rate
-        self.generators = [self.generate_batch(mode=mode)]
+        self.mode = mode
 
-    def generate(self):
-        while True:
-            yield next(random.choice(self.generators))
+    # def generate(self):
+    #     while True:
+    #         yield next(random.choice(self.generators))
+
+    def reset(self):
+        self.data.reset()
 
     def gt(self):
         return self.data.__iter__()
 
 
-    def gen_batch(self):
-        """
+    # def gen_batch(self):
+    #     """
+    #
+    #     :return: images, input masks, and according ground truth masks as batches
+    #     """
+    #     shape = (self.data.height, self.data.width, self.data.num_classes)
+    #     masks = list()
+    #     masks.append(left_upper2_2_mask(shape))
+    #     masks.append(left_upper1_4_mask(shape))
+    #     masks.append(blackMask(shape))
+    #     masks.append(left_upper2_4_mask(shape))
+    #     masks.append(left_upper3_4_mask(shape))
+    #     masks.append(zeroMask(shape))
+    #
+    #     def _get_mask(img_mask):
+    #         rand_idx = np.random.randint(0, len(masks) + 1)
+    #         logging.info("mask %s" %rand_idx)
+    #         if rand_idx < len(masks):
+    #             return masks[rand_idx]
+    #         else:
+    #             return img_mask
+    #
+    #     while(True):
+    #         imgs, img_masks = next(self.gt())
+    #         input_masks = list()
+    #         for i in range(img_masks.shape[0]):
+    #             mask = _get_mask(img_masks[i])
+    #             input_masks.append(mask)
+    #
+    #         input_masks = np.stack(input_masks, axis=0)
+    #
+    #         assert imgs.shape > input_masks.shape, "imgs.shape : %s, input_masks.shape : %s" % (
+    #         imgs.shape, input_masks.shape)
+    #         assert img_masks.shape == input_masks.shape
+    #
+    #         yield imgs, input_masks, img_masks
+    #
 
-        :return: images, input masks, and according ground truth masks as batches
-        """
-        shape = (self.data.height, self.data.width, self.data.num_classes)
-        masks = list()
-        masks.append(left_upper2_2_mask(shape))
-        masks.append(left_upper1_4_mask(shape))
-        masks.append(blackMask(shape))
-        masks.append(left_upper2_4_mask(shape))
-        masks.append(left_upper3_4_mask(shape))
-        masks.append(zeroMask(shape))
-
-        def _get_mask(img_mask):
-            rand_idx = np.random.randint(0, len(masks) + 1)
-            logging.info("mask %s" %rand_idx)
-            if rand_idx < len(masks):
-                return masks[rand_idx]
-            else:
-                return img_mask
-
-        while(True):
-            imgs, img_masks = next(self.gt())
-            input_masks = list()
-            for i in range(img_masks.shape[0]):
-                mask = _get_mask(img_masks[i])
-                input_masks.append(mask)
-
-            input_masks = np.stack(input_masks, axis=0)
-
-            assert imgs.shape > input_masks.shape, "imgs.shape : %s, input_masks.shape : %s" % (
-            imgs.shape, input_masks.shape)
-            assert img_masks.shape == input_masks.shape
-
-            yield imgs, input_masks, img_masks
-
-
-    def generate_batch(self, mode='train'):
+    def generate_batch(self):
         idx = 0
         for img, mask_gt in self.data:
             shape = mask_gt.shape
             init_mask = self.get_initialization(shape)
             rand = np.random.rand()
-            if mode == 'train':
+            if self.mode == 'train' or self.mode == 'trainval':
                 if rand > 0.7:
                     logging.info("gt")
                     pred_mask = mask_gt
@@ -143,7 +146,7 @@ class DataGenerator(object):
                     #     pos = pos // self.data.height
                     #     idx0 = pos % self.data.batch_size
                     # pred_mask[idx0][idx1][idx2][idx3] = mask_gt[idx0][idx1][idx2][idx3]
-            elif mode == 'test':
+            elif self.mode == 'test' or self.mode == 'val':
                 logging.info("inference")
                 pred_masks = infer(session=self.session, net=self.net, img=img, init_mask=init_mask,
                                   data_update_rate=100, train=False, iterations=300)
@@ -151,7 +154,7 @@ class DataGenerator(object):
                 # visualize stages of inference and write out
                 for mask, iter in pred_masks:
                     write_mask(mask=mask, mask_gt=mask_gt, output_dir='output', name=self.data.file_index_list[idx], iteration=iter)
-                idx += self.data.batch_size
+                idx += img.shape[0]
 
                 # only return final mask in inference process
                 pred_mask = pred_masks[-1][0]
@@ -164,25 +167,27 @@ class DataGenerator(object):
 
 
 if __name__=='__main__':
-    img_path = join(dir_path, "../../", "data/weizmann_horse_db/rgb_1")
-    test_img_path = join(dir_path, "../../", "data/weizmann_horse_db/gray_1")
-    img_gt_path = join(dir_path, "../../", "data/weizmann_horse_db/figure_ground_1")
-    print("img_dir %s" % img_path)
-    print("img_gt_dir %s" % img_gt_path)
-
-    classes = ['__background__', 'horse']
-    from dvn.src.model.dvn import DvnNet
+    import os
     from dvn.src.data.data_set import DataSet
     import tensorflow as tf
-    from dvn.src.util.measures import _oracle_score_cpu
+    module_path = os.path.abspath(__file__)
+    dir_path = os.path.dirname(module_path)  # store dir_path for later us
+    root_path = join(dir_path, "../../")
+    log_dir = join(root_path, "logs")
+    model_dir = join(root_path, "model")
+    data_dir = join(root_path, "data/weizmann_horse_db")
+    classes = ['__background__', 'horse']
 
-    data = DataSet(classes, img_path, img_gt_path, batch_size=1)
-    generator = DataGenerator(session=None, net=None, data=data, train=False, data_update_rate=0)
-    for img, mask, img_gt in generator.helper():
-        print("mask shape ")
-        print( mask.shape)
-        print("y_mean")
-        print(np.mean(mask, (1,2))[..., 1])
-        print("oracle score ")
-        print(_oracle_score_cpu(mask, img_gt))
-        print("\n")
+
+
+    with tf.Session() as sess:
+        data = DataSet(data_dir=data_dir, classes=classes, batch_size=10, height=48, width=48, mode='test')
+        generator = DataGenerator(session=sess, net=None, data=data, mode='val', data_update_rate=100)
+
+        idx = 0
+        while(True):
+            for img, img_gt in generator.gt():
+                print(idx)
+                idx +=1
+            data.reset()
+
